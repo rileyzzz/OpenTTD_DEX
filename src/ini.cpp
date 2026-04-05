@@ -94,7 +94,7 @@ bool IniFile::SaveToDisk(const std::string &filename)
 		Debug(misc, 0, "Renaming {} to {} failed; configuration not saved: {}", file_new, filename, ec.message());
 	}
 
-#ifdef __EMSCRIPTEN__
+#if __EMSCRIPTEN__ && DEX_TODO
 	EM_ASM(if (window["openttd_syncfs"]) openttd_syncfs());
 #endif
 

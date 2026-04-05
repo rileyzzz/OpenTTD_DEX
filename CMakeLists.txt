@@ -115,7 +115,7 @@ endif()
 # Prefer -pthread over -lpthread, which is often the better option of the two.
 set(CMAKE_THREAD_PREFER_PTHREAD YES)
 # Make sure we have Threads available.
-find_package(Threads REQUIRED)
+# find_package(Threads REQUIRED)
 
 find_package(ZLIB)
 find_package(LibLZMA)
@@ -142,7 +142,7 @@ if(NOT OPTION_DEDICATED)
         find_package(Allegro)
         if(NOT APPLE)
             find_package(Freetype)
-            find_package(SDL2)
+            # find_package(SDL2)
             find_package(Fluidsynth)
             if(Freetype_FOUND)
                 find_package(Fontconfig)
@@ -183,7 +183,7 @@ show_options()
 
 if(UNIX AND NOT APPLE AND NOT OPTION_DEDICATED)
     if(NOT SDL2_FOUND AND NOT ALLEGRO_FOUND)
-        message(FATAL_ERROR "SDL2 or Allegro is required for this platform")
+        # message(FATAL_ERROR "SDL2 or Allegro is required for this platform")
     endif()
     if(HARFBUZZ_FOUND AND NOT ICU_i18n_FOUND)
         message(WARNING "HarfBuzz depends on ICU i18n to function; HarfBuzz will be disabled")
@@ -273,7 +273,7 @@ target_link_libraries(openttd_lib
     openttd::languages
     openttd::settings
     openttd::script_api
-    Threads::Threads
+    # Threads::Threads
 )
 
 target_link_libraries(openttd
@@ -318,7 +318,7 @@ endif()
 
 if(NOT OPTION_DEDICATED)
     link_package(Fluidsynth)
-    link_package(SDL2 TARGET SDL2::SDL2)
+    # link_package(SDL2 TARGET SDL2::SDL2)
     link_package(Allegro)
     link_package(FREETYPE TARGET Freetype::Freetype)
     link_package(Fontconfig TARGET Fontconfig::Fontconfig)
@@ -331,14 +331,14 @@ if(NOT OPTION_DEDICATED)
         # SDL2 dynamically loads OpenGL if needed, so do not link to OpenGL when
         # on Linux. For Windows, we need to link to OpenGL as we also have a win32
         # driver using it.
-        add_definitions(-DWITH_OPENGL)
-        message(STATUS "OpenGL found -- -DWITH_OPENGL -- (via SDL2)")
+        # add_definitions(-DWITH_OPENGL)
+        # message(STATUS "OpenGL found -- -DWITH_OPENGL -- (via SDL2)")
     else()
-        link_package(OpenGL TARGET OpenGL::GL)
+        # link_package(OpenGL TARGET OpenGL::GL)
     endif()
 endif()
 
-include(3rdparty/llvm/CheckAtomic)
+# include(3rdparty/llvm/CheckAtomic)
 
 if(APPLE)
     link_package(Iconv TARGET Iconv::Iconv)

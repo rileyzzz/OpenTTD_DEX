@@ -448,7 +448,7 @@ public:
 		 * let "os/emscripten/pre.js" hardcode a list of servers people can
 		 * join. This means the serverlist is curated for now, but it is the
 		 * best we can offer. */
-#ifdef __EMSCRIPTEN__
+#if __EMSCRIPTEN__ && DEX_TODO
 		EM_ASM(if (window["openttd_server_list"]) openttd_server_list());
 #endif
 

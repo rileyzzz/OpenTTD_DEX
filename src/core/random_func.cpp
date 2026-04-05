@@ -102,7 +102,7 @@ void RandomBytesWithFallback(std::span<uint8_t> buf)
 #elif defined(__GLIBC__) && ((__GLIBC__ > 2) || ((__GLIBC__ == 2) && (__GLIBC_MINOR__ >= 25)))
 	auto res = getrandom(buf.data(), buf.size(), 0);
 	if (res > 0 && static_cast<size_t>(res) == buf.size()) return;
-#elif defined(__EMSCRIPTEN__)
+#elif defined(__EMSCRIPTEN__) && DEX_TODO
 	auto res = EM_ASM_INT({
 		var buf = $0;
 		var bytes = $1;

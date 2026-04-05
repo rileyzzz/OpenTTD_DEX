@@ -540,7 +540,7 @@ void ClientNetworkContentSocketHandler::AfterDownload()
 			FioRemove(fname);
 		}
 
-#ifdef __EMSCRIPTEN__
+#if __EMSCRIPTEN__ && DEX_TODO
 		EM_ASM(if (window["openttd_syncfs"]) openttd_syncfs());
 #endif
 

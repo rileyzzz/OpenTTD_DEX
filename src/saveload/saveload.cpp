@@ -2952,7 +2952,7 @@ static void SaveFileDone()
 	InvalidateWindowData(WC_STATUS_BAR, 0, SBI_SAVELOAD_FINISH);
 	_sl.saveinprogress = false;
 
-#ifdef __EMSCRIPTEN__
+#if __EMSCRIPTEN__ && DEX_TODO
 	EM_ASM(if (window["openttd_syncfs"]) openttd_syncfs());
 #endif
 }
