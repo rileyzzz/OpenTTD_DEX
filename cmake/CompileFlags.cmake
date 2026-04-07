@@ -41,6 +41,11 @@ macro(compile_flags)
         endif()
     endif()
 
+    if (EMSCRIPTEN)
+        # We need the output as small as possible.
+        add_compile_options(-Oz)
+    endif()
+
     # Prepare a generator that checks if we are not a debug, and don't have asserts
     # on. We need this later on to set some compile options for stable releases.
     set(IS_STABLE_RELEASE "$<AND:$<NOT:$<CONFIG:Debug>>,$<NOT:$<BOOL:${OPTION_USE_ASSERTS}>>>")

@@ -12,6 +12,9 @@
 
 #include "music_driver.hpp"
 
+#if DEX_TODO
+
+
 class MusicDriver_ExtMidi : public MusicDriver {
 private:
 	std::vector<std::string> command_tokens{};
@@ -41,5 +44,7 @@ public:
 	FMusicDriver_ExtMidi() : DriverFactoryBase(Driver::DT_MUSIC, 3, "extmidi", "External MIDI Driver") {}
 	std::unique_ptr<Driver> CreateInstance() const override { return std::make_unique<MusicDriver_ExtMidi>(); }
 };
+
+#endif // DEX_TODO
 
 #endif /* MUSIC_EXTERNAL_H */

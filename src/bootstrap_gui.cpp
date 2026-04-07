@@ -312,7 +312,7 @@ public:
 	void OnConnect(bool success) override
 	{
 		if (!success) {
-			EM_ASM({ if (window["openttd_bootstrap_failed"]) openttd_bootstrap_failed(); });
+			DEX_ASM({ Module.BootstrapFailed(); });
 			return;
 		}
 
@@ -329,7 +329,7 @@ public:
 		_network_content_client.DownloadSelectedContent(this->total_files, this->total_bytes);
 		this->downloading = true;
 
-		EM_ASM({ if (window["openttd_bootstrap"]) openttd_bootstrap($0, $1); }, this->downloaded_bytes, this->total_bytes);
+		DEX_ASM_ARGS({ Module.Bootstrap($0, $1); }, this->downloaded_bytes, this->total_bytes);
 	}
 
 	void OnDownloadProgress(const ContentInfo &, int bytes) override
@@ -341,7 +341,7 @@ public:
 			this->downloaded_bytes += bytes;
 		}
 
-		EM_ASM({ if (window["openttd_bootstrap"]) openttd_bootstrap($0, $1); }, this->downloaded_bytes, this->total_bytes);
+		DEX_ASM_ARGS({ Module.Bootstrap($0, $1); }, this->downloaded_bytes, this->total_bytes);
 	}
 
 	void OnDownloadComplete(ContentID) override

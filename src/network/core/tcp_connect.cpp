@@ -220,6 +220,12 @@ void TCPConnecter::OnResolved(addrinfo *ai)
 void TCPConnecter::Resolve()
 {
 	/* Port is already guaranteed part of the connection_string. */
+	#if !DEX_TODO
+	Debug(net, 0, "TCPConnecter::Resolve() not supported");
+	this->status = Status::Failure;
+	return;
+
+	#else // DEX_TODO
 	NetworkAddress address = ParseConnectionString(this->connection_string, 0);
 
 	addrinfo hints{};
@@ -253,6 +259,7 @@ void TCPConnecter::Resolve()
 	this->OnResolved(ai);
 
 	this->status = Status::Connecting;
+	#endif // DEX_TODO
 }
 
 /**

@@ -33,6 +33,8 @@
 #define EXTERNAL_PLAYER "timidity"
 #endif
 
+#if DEX_TODO
+
 /** Factory for the midi player that uses external players. */
 static FMusicDriver_ExtMidi iFMusicDriver_ExtMidi;
 
@@ -169,3 +171,5 @@ void MusicDriver_ExtMidi::DoStop()
 	waitpid(this->pid, nullptr, 0);
 	this->pid = -1;
 }
+
+#endif // DEX_TODO

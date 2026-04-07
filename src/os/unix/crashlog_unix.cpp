@@ -90,6 +90,7 @@ class CrashLogUnix : public CrashLog {
 		this->try_execute_active = true;
 
 		/* Setup a longjump in case a crash happens. */
+		#if DEX_TODO
 		if (setjmp(this->internal_fault_jmp_buf) != 0) {
 			fmt::print("Something went wrong when attempting to fill {} section of the crash log.\n", section_name);
 
@@ -104,6 +105,7 @@ class CrashLogUnix : public CrashLog {
 			this->try_execute_active = false;
 			return false;
 		}
+		#endif // DEX_TODO
 
 		bool res = func();
 		this->try_execute_active = false;
@@ -172,7 +174,11 @@ static void CDECL HandleInternalCrash([[maybe_unused]] int signum)
 		_exit(1);
 	}
 
+	#if DEX_TODO
 	longjmp(CrashLogUnix::current->internal_fault_jmp_buf, 1);
+	#else // !DEX_TODO
+	_exit(1);
+	#endif // !DEX_TODO
 }
 
 /**

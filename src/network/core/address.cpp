@@ -201,6 +201,9 @@ bool NetworkAddress::IsInNetmask(std::string_view netmask)
  */
 SOCKET NetworkAddress::Resolve(int family, int socktype, int flags, SocketList *sockets, LoopProc func)
 {
+	#if !DEX_TODO
+	return INVALID_SOCKET;
+	#else // DEX_TODO
 	struct addrinfo *ai;
 	struct addrinfo hints{};
 	hints.ai_family   = family;
@@ -282,6 +285,7 @@ SOCKET NetworkAddress::Resolve(int family, int socktype, int flags, SocketList *
 	freeaddrinfo (ai);
 
 	return sock;
+	#endif // DEX_TODO
 }
 
 /**

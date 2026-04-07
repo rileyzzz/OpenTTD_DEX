@@ -90,7 +90,7 @@
 
 #ifdef __EMSCRIPTEN__
 #	include <emscripten.h>
-#	include <emscripten/html5.h>
+// #	include <emscripten/html5.h>
 #endif
 
 #include "safeguards.h"
@@ -121,7 +121,7 @@ void UserErrorI(const std::string &str)
 	ShowOSErrorBox(str, false);
 	if (VideoDriver::GetInstance() != nullptr) VideoDriver::GetInstance()->Stop();
 
-#ifdef __EMSCRIPTEN__
+#if __EMSCRIPTEN__ && DEX_TODO
 	emscripten_exit_pointerlock();
 	/* In effect, the game ends here. As emscripten_set_main_loop() caused
 	 * the stack to be unwound, the code after MainLoop() in

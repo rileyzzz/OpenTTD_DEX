@@ -29,20 +29,20 @@ public:
 	EndianBufferWriter(Titer buffer) : buffer(buffer) {}
 	EndianBufferWriter(typename Titer::container_type &container) : buffer(std::back_inserter(container)) {}
 
-	EndianBufferWriter &operator <<(const std::string &data) { return *this << std::string_view{ data }; }
-	EndianBufferWriter &operator <<(const EncodedString &data) { return *this << data.string; }
-	EndianBufferWriter &operator <<(std::string_view data) { this->Write(data); return *this; }
-	EndianBufferWriter &operator <<(bool data) { return *this << static_cast<uint8_t>(data ? 1 : 0); }
+	inline EndianBufferWriter &operator <<(const std::string &data) { return *this << std::string_view{ data }; }
+	inline EndianBufferWriter &operator <<(const EncodedString &data) { return *this << data.string; }
+	inline EndianBufferWriter &operator <<(std::string_view data) { this->Write(data); return *this; }
+	inline EndianBufferWriter &operator <<(bool data) { return *this << static_cast<uint8_t>(data ? 1 : 0); }
 
 	template <typename... Targs>
-	EndianBufferWriter &operator <<(const std::tuple<Targs...> &data)
+	inline EndianBufferWriter &operator <<(const std::tuple<Targs...> &data)
 	{
 		this->WriteTuple(data, std::index_sequence_for<Targs...>{});
 		return *this;
 	}
 
 	template <typename... Targs>
-	EndianBufferWriter &operator <<(const std::variant<Targs...> &variant)
+	inline EndianBufferWriter &operator <<(const std::variant<Targs...> &variant)
 	{
 		this->WriteVariant(variant);
 		return *this;
@@ -60,7 +60,7 @@ public:
 	}
 
 	template <class T> requires (!std::is_class_v<T>)
-	EndianBufferWriter &operator <<(const T data)
+	inline EndianBufferWriter &operator <<(const T data)
 	{
 		if constexpr (std::is_enum_v<T>) {
 			this->Write(to_underlying(data));
@@ -71,7 +71,7 @@ public:
 	}
 
 	template <typename Tvalue, typename Tbuf = std::vector<uint8_t>>
-	static Tbuf FromValue(const Tvalue &data)
+	static inline Tbuf FromValue(const Tvalue &data)
 	{
 		Tbuf buffer;
 		EndianBufferWriter writer{ buffer };
@@ -82,13 +82,13 @@ public:
 private:
 	/** Helper function to write a tuple to the buffer. */
 	template <class Ttuple, size_t... Tindices>
-	void WriteTuple(const Ttuple &values, std::index_sequence<Tindices...>)
+	inline void WriteTuple(const Ttuple &values, std::index_sequence<Tindices...>)
 	{
 		((*this << std::get<Tindices>(values)), ...);
 	}
 
 	template <typename T, std::size_t I = 0>
-	void WriteVariant(const T &variant )
+	inline void WriteVariant(const T &variant )
 	{
 		if constexpr (I < std::variant_size_v<T>) {
 			if (I == variant.index()) {
@@ -113,7 +113,7 @@ private:
 
 	/** Fundamental write function. */
 	template <class T>
-	void Write(T value)
+	inline void Write(T value)
 	{
 		static_assert(sizeof(T) <= 8, "Value can't be larger than 8 bytes");
 
@@ -153,19 +153,19 @@ public:
 
 	void rewind() { this->read_pos = 0; }
 
-	EndianBufferReader &operator >>(std::string &data) { data = this->ReadStr(); return *this; }
-	EndianBufferReader &operator >>(EncodedString &data) { data = EncodedString{this->ReadStr()}; return *this; }
-	EndianBufferReader &operator >>(bool &data) { data = this->Read<uint8_t>() != 0; return *this; }
+	inline EndianBufferReader &operator >>(std::string &data) { data = this->ReadStr(); return *this; }
+	inline EndianBufferReader &operator >>(EncodedString &data) { data = EncodedString{this->ReadStr()}; return *this; }
+	inline EndianBufferReader &operator >>(bool &data) { data = this->Read<uint8_t>() != 0; return *this; }
 
 	template <typename... Targs>
-	EndianBufferReader &operator >>(std::tuple<Targs...> &data)
+	inline EndianBufferReader &operator >>(std::tuple<Targs...> &data)
 	{
 		this->ReadTuple(data, std::index_sequence_for<Targs...>{});
 		return *this;
 	}
 
 	template <typename... Targs>
-	EndianBufferReader &operator >>(std::variant<Targs...> &variant)
+	inline EndianBufferReader &operator >>(std::variant<Targs...> &variant)
 	{
 		this->ReadVariant(this->Read<uint8_t>(), variant);
 		return *this;
@@ -177,14 +177,14 @@ public:
 	}
 
 	template <ConvertibleThroughBase T>
-	EndianBufferReader &operator >>(T &data)
+	inline EndianBufferReader &operator >>(T &data)
 	{
 		data = T{this->Read<typename T::BaseType>()};
 		return *this;
 	}
 
 	template <class T> requires (!std::is_class_v<T>)
-	EndianBufferReader &operator >>(T &data)
+	inline EndianBufferReader &operator >>(T &data)
 	{
 		if constexpr (std::is_enum_v<T>) {
 			data = static_cast<T>(this->Read<std::underlying_type_t<T>>());
@@ -195,7 +195,7 @@ public:
 	}
 
 	template <typename Tvalue>
-	static Tvalue ToValue(std::span<const uint8_t> buffer)
+	static inline Tvalue ToValue(std::span<const uint8_t> buffer)
 	{
 		Tvalue result{};
 		EndianBufferReader reader{ buffer };
@@ -206,13 +206,13 @@ public:
 private:
 	/** Helper function to read a tuple from the buffer. */
 	template <class Ttuple, size_t... Tindices>
-	void ReadTuple(Ttuple &values, std::index_sequence<Tindices...>)
+	inline void ReadTuple(Ttuple &values, std::index_sequence<Tindices...>)
 	{
 		((*this >> std::get<Tindices>(values)), ...);
 	}
 
 	template <typename T, std::size_t I = 0>
-	void ReadVariant(uint8_t index, T &variant)
+	inline void ReadVariant(uint8_t index, T &variant)
 	{
 		if constexpr (I < std::variant_size_v<T>) {
 			if (I != index) {
@@ -240,7 +240,7 @@ private:
 
 	/** Fundamental read function. */
 	template <class T>
-	T Read()
+	inline T Read()
 	{
 		static_assert(!std::is_const_v<T>, "Can't read into const variables");
 		static_assert(sizeof(T) <= 8, "Value can't be larger than 8 bytes");
