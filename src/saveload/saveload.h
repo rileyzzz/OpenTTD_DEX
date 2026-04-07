@@ -595,6 +595,8 @@ public:
 template <class TImpl, class TObject>
 class DefaultSaveLoadHandler : public SaveLoadHandler {
 public:
+	static inline TImpl Instance;
+
 	SaveLoadTable GetDescription() const override { return static_cast<const TImpl *>(this)->description; }
 	SaveLoadCompatTable GetCompatDescription() const override { return static_cast<const TImpl *>(this)->compat_description; }
 
@@ -730,7 +732,8 @@ typedef void *SaveLoadAddrProc(void *base, size_t extra);
 
 /** SaveLoad type struct. Do NOT use this directly but use the SLE_ macros defined just below! */
 struct SaveLoad {
-	std::string name;    ///< Name of this field (optional, used for tables).
+	// std::string name;    ///< Name of this field (optional, used for tables).
+	char nameBuf[256];    ///< Name of this field (optional, used for tables).
 	SaveLoadType cmd;    ///< The action to take with the saved/loaded type, All types need different action.
 	VarType conv;        ///< Type of the variable to be saved; this field combines both FileVarType and MemVarType.
 	uint16_t length;       ///< (Conditional) length of the variable (eg. arrays) (max array size is 65536 elements).
@@ -738,7 +741,8 @@ struct SaveLoad {
 	SaveLoadVersion version_to;     ///< Save/load the variable before this savegame version.
 	SaveLoadAddrProc *address_proc; ///< Callback proc the get the actual variable address in memory.
 	size_t extra_data;              ///< Extra data for the callback proc.
-	std::shared_ptr<SaveLoadHandler> handler; ///< Custom handler for Save/Load procs.
+	// std::shared_ptr<SaveLoadHandler> handler; ///< Custom handler for Save/Load procs.
+	SaveLoadHandler* rawHandler;
 };
 
 /**
@@ -1161,7 +1165,7 @@ inline constexpr bool SlCheckVarSize(SaveLoadType cmd, VarType type, size_t leng
  * @param from     First savegame version that has the struct.
  * @param to       Last savegame version that has the struct.
  */
-#define SLEG_CONDSTRUCT(name, handler, from, to) SaveLoad {name, SL_STRUCT, 0, 0, from, to, nullptr, 0, std::make_shared<handler>()}
+#define SLEG_CONDSTRUCT(name, handler, from, to) SaveLoad {name, SL_STRUCT, 0, 0, from, to, nullptr, 0, &handler::Instance}
 
 /**
  * Storage of a global reference list in some savegame versions.
@@ -1190,7 +1194,7 @@ inline constexpr bool SlCheckVarSize(SaveLoadType cmd, VarType type, size_t leng
  * @param from     First savegame version that has the list.
  * @param to       Last savegame version that has the list.
  */
-#define SLEG_CONDSTRUCTLIST(name, handler, from, to) SaveLoad {name, SL_STRUCTLIST, 0, 0, from, to, nullptr, 0, std::make_shared<handler>()}
+#define SLEG_CONDSTRUCTLIST(name, handler, from, to) SaveLoad {name, SL_STRUCTLIST, 0, 0, from, to, nullptr, 0, &handler::Instance}
 
 /**
  * Storage of a global variable in every savegame version.

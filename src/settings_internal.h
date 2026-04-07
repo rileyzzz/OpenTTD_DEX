@@ -69,10 +69,29 @@ struct IniItem;
 
 /** Properties of config file settings. */
 struct SettingDesc {
-	SettingDesc(const SaveLoad &save, SettingFlags flags, bool startup) :
-		flags(flags), startup(startup), save(save) {}
-	virtual ~SettingDesc() = default;
+	// enum class Type
+	// {
+	// 	Int,
+	// 	Bool,
+	// 	OOM,
+	// 	MOM,
+	// 	String,
+	// 	List,
+	// 	Null
+	// };
 
+	constexpr SettingDesc(const SaveLoad &save, SettingFlags flags, bool startup) :
+		flags(flags), startup(startup), save(save)
+		, FormatValue(nullptr)
+		, ParseValue(nullptr)
+		, IsSameValue(nullptr)
+		, IsDefaultValue(nullptr)
+		, ResetToDefault(nullptr)
+	{
+	}
+	// virtual ~SettingDesc() = default;
+
+	// Type type = (Type)(-1);
 	SettingFlags flags;  ///< Handles how a setting would show up in the GUI (text/currency, etc.).
 	bool startup;       ///< Setting has to be loaded directly at startup?.
 	SaveLoad save;      ///< Internal structure (going to savegame, parts to config).
@@ -84,22 +103,25 @@ struct SettingDesc {
 	 * Get the name of this setting.
 	 * @return The name of the setting.
 	 */
-	constexpr const std::string &GetName() const
+	// constexpr const std::string &GetName() const
+	constexpr const char* GetName() const
 	{
-		return this->save.name;
+		return this->save.nameBuf;
 	}
 
 	/**
 	 * Check whether this setting is an integer type setting.
 	 * @return True when the underlying type is an integer.
 	 */
-	virtual bool IsIntSetting() const { return false; }
+	bool isIntSetting = false;
+	// bool IsIntSetting() const { return false; }
 
 	/**
 	 * Check whether this setting is an string type setting.
 	 * @return True when the underlying type is a string.
 	 */
-	virtual bool IsStringSetting() const { return false; }
+	bool isStringSetting = false;
+	// virtual bool IsStringSetting() const { return false; }
 
 	const struct IntSettingDesc *AsIntSetting() const;
 	const struct StringSettingDesc *AsStringSetting() const;
@@ -110,14 +132,16 @@ struct SettingDesc {
 	 * @param last The end of the buffer to format into.
 	 * @param object The object the setting is in.
 	 */
-	virtual std::string FormatValue(const void *object) const = 0;
+	// virtual std::string FormatValue(const void *object) const = 0;
+	std::string (*FormatValue)(const SettingDesc*, const void*);
 
 	/**
 	 * Parse/read the value from the Ini item into the setting associated with this object.
 	 * @param item The Ini item with the content of this setting.
 	 * @param object The object the setting is in.
 	 */
-	virtual void ParseValue(const IniItem *item, void *object) const = 0;
+	// virtual void ParseValue(const IniItem *item, void *object) const = 0;
+	void (*ParseValue)(const SettingDesc*, const IniItem*, void*);
 
 	/**
 	 * Check whether the value in the Ini item is the same as is saved in this setting in the object.
@@ -128,20 +152,23 @@ struct SettingDesc {
 	 * @param object The object the setting is in.
 	 * @return True if the value is definitely the same (might be false when the same).
 	 */
-	virtual bool IsSameValue(const IniItem *item, void *object) const = 0;
-
+	// virtual bool IsSameValue(const IniItem *item, void *object) const = 0;
+	bool (*IsSameValue)(const SettingDesc*, const IniItem*, void*);
+	
 	/**
 	 * Check whether the value is the same as the default value.
 	 *
 	 * @param object The object the setting is in.
 	 * @return true iff the value is the default value.
 	 */
-	virtual bool IsDefaultValue(void *object) const = 0;
+	// virtual bool IsDefaultValue(void *object) const = 0;
+	bool (*IsDefaultValue)(const SettingDesc*, void*);
 
 	/**
 	 * Reset the setting to its default value.
 	 */
-	virtual void ResetToDefault(void *object) const = 0;
+	// virtual void ResetToDefault(void *object) const = 0;
+	void (*ResetToDefault)(const SettingDesc*, void*);
 };
 
 /** Base integer type, including boolean, settings. Only these are shown in the settings UI. */
@@ -168,7 +195,7 @@ struct IntSettingDesc : SettingDesc {
 	using PostChangeCallback = void(int32_t value);
 
 	template <ConvertibleThroughBaseOrTo<int32_t> Tdef, ConvertibleThroughBaseOrTo<int32_t> Tmin, ConvertibleThroughBaseOrTo<uint32_t> Tmax, ConvertibleThroughBaseOrTo<int32_t> Tinterval>
-	IntSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, Tdef def,
+	constexpr IntSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, Tdef def,
 			Tmin min, Tmax max, Tinterval interval, StringID str, StringID str_help, StringID str_val,
 			SettingCategory cat, PreChangeCheck pre_check, PostChangeCallback post_callback,
 			GetTitleCallback get_title_cb, GetHelpCallback get_help_cb, GetValueParamsCallback get_value_params_cb,
@@ -177,7 +204,16 @@ struct IntSettingDesc : SettingDesc {
 			str(str), str_help(str_help), str_val(str_val), cat(cat), pre_check(pre_check),
 			post_callback(post_callback),
 			get_title_cb(get_title_cb), get_help_cb(get_help_cb), get_value_params_cb(get_value_params_cb),
-			get_def_cb(get_def_cb), get_range_cb(get_range_cb) {
+			get_def_cb(get_def_cb), get_range_cb(get_range_cb)
+	{
+		SettingDesc::FormatValue = &IntSettingDesc::FormatValue;
+		SettingDesc::ParseValue = &IntSettingDesc::ParseValue;
+		SettingDesc::IsSameValue = &IntSettingDesc::IsSameValue;
+		SettingDesc::IsDefaultValue = &IntSettingDesc::IsDefaultValue;
+		SettingDesc::ResetToDefault = &IntSettingDesc::ResetToDefault;
+		pParseValue2 = &IntSettingDesc::ParseValue2;
+		isIntSetting = true;
+
 		if constexpr (ConvertibleThroughBase<Tdef>) {
 			this->def = def.base();
 		} else {
@@ -229,18 +265,22 @@ struct IntSettingDesc : SettingDesc {
 	 * Check whether this setting is a boolean type setting.
 	 * @return True when the underlying type is an integer.
 	 */
-	virtual bool IsBoolSetting() const { return false; }
-	bool IsIntSetting() const override { return true; }
+	// virtual bool IsBoolSetting() const { return false; }
+	bool isBoolSetting = false;
+
+	// bool IsIntSetting() const override { return true; }
 
 	void ChangeValue(const void *object, int32_t newvalue) const;
 	void MakeValueValidAndWrite(const void *object, int32_t value) const;
+	
+	int32_t (*pParseValue2)(const IntSettingDesc* d, std::string_view str);
+	static int32_t ParseValue2(const IntSettingDesc* d, std::string_view str);
 
-	virtual int32_t ParseValue(std::string_view str) const;
-	std::string FormatValue(const void *object) const override;
-	void ParseValue(const IniItem *item, void *object) const override;
-	bool IsSameValue(const IniItem *item, void *object) const override;
-	bool IsDefaultValue(void *object) const override;
-	void ResetToDefault(void *object) const override;
+	static std::string FormatValue(const SettingDesc* d, const void *object);
+	static void ParseValue(const SettingDesc* d, const IniItem *item, void *object);
+	static bool IsSameValue(const SettingDesc* d, const IniItem *item, void *object);
+	static bool IsDefaultValue(const SettingDesc* d, void *object);
+	static void ResetToDefault(const SettingDesc* d, void *object);
 	int32_t Read(const void *object) const;
 
 private:
@@ -250,19 +290,24 @@ private:
 
 /** Boolean setting. */
 struct BoolSettingDesc : IntSettingDesc {
-	BoolSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, bool def,
+	constexpr BoolSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, bool def,
 			StringID str, StringID str_help, StringID str_val, SettingCategory cat,
 			PreChangeCheck pre_check, PostChangeCallback post_callback,
 			GetTitleCallback get_title_cb, GetHelpCallback get_help_cb, GetValueParamsCallback get_value_params_cb,
 			GetDefaultValueCallback get_def_cb) :
 		IntSettingDesc(save, flags, startup, def ? 1 : 0, 0, 1, 0, str, str_help, str_val, cat,
-			pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, nullptr) {}
+			pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, nullptr)
+		{
+			pParseValue2 = &BoolSettingDesc::ParseValue2;
+			SettingDesc::FormatValue = &BoolSettingDesc::FormatValue;
+			isBoolSetting = true;
+		}
 
 	static std::optional<bool> ParseSingleValue(std::string_view str);
 
-	bool IsBoolSetting() const override { return true; }
-	int32_t ParseValue(std::string_view str) const override;
-	std::string FormatValue(const void *object) const override;
+	// bool IsBoolSetting() const override { return true; }
+	static int32_t ParseValue2(const IntSettingDesc* d, std::string_view str);
+	static std::string FormatValue(const SettingDesc* d, const void *object);
 };
 
 /** One of many setting. */
@@ -270,7 +315,7 @@ struct OneOfManySettingDesc : IntSettingDesc {
 	typedef std::optional<uint32_t> OnConvert(std::string_view value); ///< callback prototype for conversion error
 
 	template <ConvertibleThroughBaseOrTo<int32_t> Tdef, ConvertibleThroughBaseOrTo<uint32_t> Tmax>
-	OneOfManySettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, Tdef def,
+	constexpr OneOfManySettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, Tdef def,
 			Tmax max, StringID str, StringID str_help, StringID str_val, SettingCategory cat,
 			PreChangeCheck pre_check, PostChangeCallback post_callback,
 			GetTitleCallback get_title_cb, GetHelpCallback get_help_cb, GetValueParamsCallback get_value_params_cb,
@@ -278,32 +323,48 @@ struct OneOfManySettingDesc : IntSettingDesc {
 		IntSettingDesc(save, flags, startup, def, 0, max, 0, str, str_help, str_val, cat,
 			pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, nullptr), many_cnvt(many_cnvt)
 	{
-		for (auto one : many) this->many.push_back(one);
+		pParseValue2 = &OneOfManySettingDesc::ParseValue2;
+		SettingDesc::FormatValue = &OneOfManySettingDesc::FormatValue;
+
+		// for (auto one : many) this->many.push_back(one);
+		// count = many.count();
+		count = 0;
+		auto dstIt = this->many.begin();
+		for (auto one : many)
+		{
+			(*dstIt++) = one;
+			count++;
+		}
 	}
 
-	std::vector<std::string_view> many; ///< possible values for this type
+	size_t count;
+	std::array<std::string_view, 64> many; ///< possible values for this type
 	OnConvert *many_cnvt;          ///< callback procedure when loading value mechanism fails
 
 	static std::optional<uint32_t> ParseSingleValue(std::string_view str, std::span<const std::string_view> many);
 	std::string FormatSingleValue(uint id) const;
 
-	int32_t ParseValue(std::string_view str) const override;
-	std::string FormatValue(const void *object) const override;
+	static int32_t ParseValue2(const IntSettingDesc* d, std::string_view str);
+	static std::string FormatValue(const SettingDesc* d, const void *object);
 };
 
 /** Many of many setting. */
 struct ManyOfManySettingDesc : OneOfManySettingDesc {
 	template <ConvertibleThroughBaseOrTo<int32_t> Tdef>
-	ManyOfManySettingDesc(const SaveLoad &save, SettingFlags flags, bool startup,
+	constexpr ManyOfManySettingDesc(const SaveLoad &save, SettingFlags flags, bool startup,
 		Tdef def, StringID str, StringID str_help, StringID str_val, SettingCategory cat,
 		PreChangeCheck pre_check, PostChangeCallback post_callback,
 		GetTitleCallback get_title_cb, GetHelpCallback get_help_cb, GetValueParamsCallback get_value_params_cb,
 		GetDefaultValueCallback get_def_cb, std::initializer_list<std::string_view> many, OnConvert *many_cnvt) :
 		OneOfManySettingDesc(save, flags, startup, def, (1 << many.size()) - 1, str, str_help,
-			str_val, cat, pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, many, many_cnvt) {}
+			str_val, cat, pre_check, post_callback, get_title_cb, get_help_cb, get_value_params_cb, get_def_cb, many, many_cnvt)
+		{
+			pParseValue2 = &ManyOfManySettingDesc::ParseValue2;
+			SettingDesc::FormatValue = &ManyOfManySettingDesc::FormatValue;
+		}
 
-	int32_t ParseValue(std::string_view str) const override;
-	std::string FormatValue(const void *object) const override;
+	static int32_t ParseValue2(const IntSettingDesc* d, std::string_view str);
+	static std::string FormatValue(const SettingDesc* d, const void *object);
 };
 
 /** String settings. */
@@ -323,24 +384,32 @@ struct StringSettingDesc : SettingDesc {
 	 */
 	typedef void PostChangeCallback(const std::string &value);
 
-	StringSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, std::string_view def,
+	constexpr StringSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, std::string_view def,
 			uint32_t max_length, PreChangeCheck pre_check, PostChangeCallback post_callback) :
 		SettingDesc(save, flags, startup), def(def), max_length(max_length),
-			pre_check(pre_check), post_callback(post_callback) {}
+			pre_check(pre_check), post_callback(post_callback)
+		{
+			SettingDesc::FormatValue = &StringSettingDesc::FormatValue;
+			SettingDesc::ParseValue = &StringSettingDesc::ParseValue;
+			SettingDesc::IsSameValue = &StringSettingDesc::IsSameValue;
+			SettingDesc::IsDefaultValue = &StringSettingDesc::IsDefaultValue;
+			SettingDesc::ResetToDefault = &StringSettingDesc::ResetToDefault;
+			SettingDesc::isStringSetting = true;
+		}
 
 	std::string_view def; ///< Default value given when none is present
 	uint32_t max_length;                 ///< Maximum length of the string, 0 means no maximum length
 	PreChangeCheck *pre_check;         ///< Callback to check for the validity of the setting.
 	PostChangeCallback *post_callback; ///< Callback when the setting has been changed.
 
-	bool IsStringSetting() const override { return true; }
+	// bool IsStringSetting() const override { return true; }
 	void ChangeValue(const void *object, std::string &&newval) const;
 
-	std::string FormatValue(const void *object) const override;
-	void ParseValue(const IniItem *item, void *object) const override;
-	bool IsSameValue(const IniItem *item, void *object) const override;
-	bool IsDefaultValue(void *object) const override;
-	void ResetToDefault(void *object) const override;
+	static std::string FormatValue(const SettingDesc* d, const void *object);
+	static void ParseValue(const SettingDesc* d, const IniItem *item, void *object);
+	static bool IsSameValue(const SettingDesc* d, const IniItem *item, void *object);
+	static bool IsDefaultValue(const SettingDesc* d, void *object);
+	static void ResetToDefault(const SettingDesc* d, void *object);
 	const std::string &Read(const void *object) const;
 
 private:
@@ -350,31 +419,89 @@ private:
 
 /** List/array settings. */
 struct ListSettingDesc : SettingDesc {
-	ListSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, std::string_view def) :
-		SettingDesc(save, flags, startup), def(def) {}
+	constexpr ListSettingDesc(const SaveLoad &save, SettingFlags flags, bool startup, std::string_view def) :
+		SettingDesc(save, flags, startup), def(def)
+	{
+		SettingDesc::FormatValue = &ListSettingDesc::FormatValue;
+		SettingDesc::ParseValue = &ListSettingDesc::ParseValue;
+		SettingDesc::IsSameValue = &ListSettingDesc::IsSameValue;
+		SettingDesc::IsDefaultValue = &ListSettingDesc::IsDefaultValue;
+		SettingDesc::ResetToDefault = &ListSettingDesc::ResetToDefault;
+	}
 
 	std::string_view def; ///< default value given when none is present
 
-	std::string FormatValue(const void *object) const override;
-	void ParseValue(const IniItem *item, void *object) const override;
-	bool IsSameValue(const IniItem *item, void *object) const override;
-	bool IsDefaultValue(void *object) const override;
-	void ResetToDefault(void *object) const override;
+	static std::string FormatValue(const SettingDesc* d, const void *object);
+	static void ParseValue(const SettingDesc* d, const IniItem *item, void *object);
+	static bool IsSameValue(const SettingDesc* d, const IniItem *item, void *object);
+	static bool IsDefaultValue(const SettingDesc* d, void *object);
+	static void ResetToDefault(const SettingDesc* d, void *object);
 };
 
 /** Placeholder for settings that have been removed, but might still linger in the savegame. */
 struct NullSettingDesc : SettingDesc {
-	NullSettingDesc(const SaveLoad &save) :
-		SettingDesc(save, SettingFlag::NotInConfig, false) {}
+	constexpr NullSettingDesc(const SaveLoad &save) :
+		SettingDesc(save, SettingFlag::NotInConfig, false)
+	{
+		SettingDesc::FormatValue = &NullSettingDesc::FormatValue;
+		SettingDesc::ParseValue = &NullSettingDesc::ParseValue;
+		SettingDesc::IsSameValue = &NullSettingDesc::IsSameValue;
+		SettingDesc::IsDefaultValue = &NullSettingDesc::IsDefaultValue;
+		SettingDesc::ResetToDefault = &NullSettingDesc::ResetToDefault;
+	}
 
-	std::string FormatValue(const void *) const override { NOT_REACHED(); }
-	void ParseValue(const IniItem *, void *) const override { NOT_REACHED(); }
-	bool IsSameValue(const IniItem *, void *) const override { NOT_REACHED(); }
-	bool IsDefaultValue(void *) const override { NOT_REACHED(); }
-	void ResetToDefault(void *) const override { NOT_REACHED(); }
+	static std::string FormatValue(const SettingDesc* d, const void *) { NOT_REACHED(); }
+	static void ParseValue(const SettingDesc* d, const IniItem *, void *) { NOT_REACHED(); }
+	static bool IsSameValue(const SettingDesc* d, const IniItem *, void *) { NOT_REACHED(); }
+	static bool IsDefaultValue(const SettingDesc* d, void *) { NOT_REACHED(); }
+	static void ResetToDefault(const SettingDesc* d, void *) { NOT_REACHED(); }
 };
 
 typedef std::variant<IntSettingDesc, BoolSettingDesc, OneOfManySettingDesc, ManyOfManySettingDesc, StringSettingDesc, ListSettingDesc, NullSettingDesc> SettingVariant;
+
+/*
+struct SettingVariant
+{
+	// union
+	// {
+		IntSettingDesc intData[1];
+		BoolSettingDesc boolData[1];
+		OneOfManySettingDesc oomData[1];
+		ManyOfManySettingDesc momData[1];
+		StringSettingDesc stringData[1];
+		ListSettingDesc listData[1];
+		NullSettingDesc nullData[1];
+	// };
+	size_t type;
+	
+	// std::variant<IntSettingDesc, BoolSettingDesc, OneOfManySettingDesc, ManyOfManySettingDesc, StringSettingDesc, ListSettingDesc, NullSettingDesc> data;
+
+    SettingVariant(const SettingVariant&) = default;
+    SettingVariant(SettingVariant&&) = default;
+    SettingVariant& operator=(const SettingVariant&) = default;
+    SettingVariant& operator=(SettingVariant&&) = default;
+
+	// template<typename T, typename = std::enable_if_t<!std::is_same_v<std::decay_t<T>, SettingVariant>>>
+    // __attribute__((noinline)) SettingVariant(T&& value) : data(std::forward<T>(value)) {}
+
+    // template<typename T, typename... Args>
+    // __attribute__((noinline)) SettingVariant(std::initializer_list<T> il, Args&&... args) : data(il, std::forward<Args>(args)...) { }
+
+	// template<typename T, typename... Args>
+	// __attribute__((noinline)) SettingVariant(std::in_place_type_t<T>, Args&&... args) : data(std::in_place_type<T>, std::forward<Args>(args)...) { }
+
+	// template<std::size_t I, typename... Args>
+	// __attribute__((noinline)) SettingVariant(std::in_place_index_t<I>, Args&&... args) : data(std::in_place_index<I>, std::forward<Args>(args)...) { }
+
+	// SettingVariant(IntSettingDesc&& desc) : data(desc) { }
+	// SettingVariant(BoolSettingDesc&& desc) : data(desc) { }
+	// SettingVariant(OneOfManySettingDesc&& desc) : data(desc) { }
+	// SettingVariant(ManyOfManySettingDesc&& desc) : data(desc) { }
+	// SettingVariant(StringSettingDesc&& desc) : data(desc) { }
+	// SettingVariant(ListSettingDesc&& desc) : data(desc) { }
+	// SettingVariant(NullSettingDesc&& desc) : data(desc) { }
+};
+*/
 
 /**
  * Helper to convert the type of the iterated settings description to a pointer to it.
@@ -386,7 +513,7 @@ static constexpr const SettingDesc *GetSettingDesc(const SettingVariant &desc)
 	return std::visit([](auto&& arg) -> const SettingDesc * { return &arg; }, desc);
 }
 
-typedef std::span<const SettingVariant> SettingTable;
+typedef const std::span<const SettingVariant> SettingTable;
 
 const SettingDesc *GetSettingFromName(std::string_view name);
 void GetSaveLoadFromSettingTable(SettingTable settings, std::vector<SaveLoad> &saveloads);

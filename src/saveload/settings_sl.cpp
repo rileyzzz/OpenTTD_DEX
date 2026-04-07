@@ -85,7 +85,12 @@ static std::vector<SaveLoad> GetSettingsDesc(const SettingTable &settings, bool 
 		if (is_loading && sd->flags.Test(SettingFlag::NoNetworkSync) && _networking && !_network_server) {
 			if (IsSavegameVersionBefore(SLV_TABLE_CHUNKS)) {
 				/* We don't want to read this setting, so we do need to skip over it. */
-				saveloads.emplace_back(sd->GetName(), sd->save.cmd, GetVarFileType(sd->save.conv) | SLE_VAR_NULL, sd->save.length, sd->save.version_from, sd->save.version_to, nullptr, 0, nullptr);
+				SaveLoad sl{{}, sd->save.cmd, GetVarFileType(sd->save.conv) | SLE_VAR_NULL, sd->save.length, sd->save.version_from, sd->save.version_to, nullptr, 0, nullptr};
+				// Frick you!
+				#undef snprintf
+				snprintf(sl.nameBuf, sizeof(sl.nameBuf), "%s", sd->GetName());
+
+				saveloads.emplace_back(std::move(sl));
 			}
 			continue;
 		}
@@ -117,7 +122,7 @@ static void LoadSettings(const SettingTable &settings, void *object, const SaveL
 		if (sd->flags.Test(SettingFlag::NoNetworkSync) && _networking && !_network_server) continue;
 		if (!SlIsObjectCurrentlyValid(sd->save.version_from, sd->save.version_to)) continue;
 
-		if (sd->IsIntSetting()) {
+		if (sd->isIntSetting) {
 			const IntSettingDesc *int_setting = sd->AsIntSetting();
 			int_setting->MakeValueValidAndWrite(object, int_setting->Read(object));
 		}

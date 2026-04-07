@@ -58,25 +58,83 @@
 
 #include "safeguards.h"
 
-SettingTable _company_settings{ _company_settings_table };
-SettingTable _currency_settings{ _currency_settings_table };
-SettingTable _difficulty_settings{ _difficulty_settings_table };
-SettingTable _multimedia_settings{ _multimedia_settings_table };
-SettingTable _economy_settings{ _economy_settings_table };
-SettingTable _game_settings{ _game_settings_table };
-SettingTable _gui_settings{ _gui_settings_table };
-SettingTable _linkgraph_settings{ _linkgraph_settings_table };
-SettingTable _locale_settings{ _locale_settings_table };
-SettingTable _misc_settings{ _misc_settings_table };
-SettingTable _network_private_settings{ _network_private_settings_table };
-SettingTable _network_secrets_settings{ _network_secrets_settings_table };
-SettingTable _network_settings{ _network_settings_table };
-SettingTable _news_display_settings{ _news_display_settings_table };
-SettingTable _old_gameopt_settings{ _old_gameopt_settings_table };
-SettingTable _pathfinding_settings{ _pathfinding_settings_table };
-SettingTable _script_settings{ _script_settings_table };
-SettingTable _window_settings{ _window_settings_table };
-SettingTable _world_settings{ _world_settings_table };
+
+constexpr SettingTable _company_settings{ _company_settings_table };
+constexpr SettingTable _currency_settings{ _currency_settings_table };
+constexpr SettingTable _difficulty_settings{ _difficulty_settings_table };
+constexpr SettingTable _multimedia_settings{ _multimedia_settings_table };
+constexpr SettingTable _economy_settings{ _economy_settings_table };
+constexpr SettingTable _game_settings{ _game_settings_table };
+constexpr SettingTable _gui_settings{ _gui_settings_table };
+constexpr SettingTable _linkgraph_settings{ _linkgraph_settings_table };
+constexpr SettingTable _locale_settings{ _locale_settings_table };
+constexpr SettingTable _misc_settings{ _misc_settings_table };
+constexpr SettingTable _network_private_settings{ _network_private_settings_table };
+constexpr SettingTable _network_secrets_settings{ _network_secrets_settings_table };
+constexpr SettingTable _network_settings{ _network_settings_table };
+constexpr SettingTable _news_display_settings{ _news_display_settings_table };
+constexpr SettingTable _old_gameopt_settings{ _old_gameopt_settings_table };
+constexpr SettingTable _pathfinding_settings{ _pathfinding_settings_table };
+constexpr SettingTable _script_settings{ _script_settings_table };
+constexpr SettingTable _window_settings{ _window_settings_table };
+constexpr SettingTable _world_settings{ _world_settings_table };
+
+
+/*
+SettingTable _company_settings;
+SettingTable _currency_settings;
+SettingTable _difficulty_settings;
+SettingTable _multimedia_settings;
+SettingTable _economy_settings;
+SettingTable _game_settings;
+SettingTable _gui_settings;
+SettingTable _linkgraph_settings;
+SettingTable _locale_settings;
+SettingTable _misc_settings;
+SettingTable _network_private_settings;
+SettingTable _network_secrets_settings;
+SettingTable _network_settings;
+SettingTable _news_display_settings;
+SettingTable _old_gameopt_settings;
+SettingTable _pathfinding_settings;
+SettingTable _script_settings;
+SettingTable _window_settings;
+SettingTable _world_settings;
+
+static void InitSettings(void)
+{
+	_company_settings = SettingTable{ _company_settings_table };
+	_currency_settings = SettingTable{ _currency_settings_table };
+	_difficulty_settings = SettingTable{ _difficulty_settings_table };
+	_multimedia_settings = SettingTable{ _multimedia_settings_table };
+	_economy_settings = SettingTable{ _economy_settings_table };
+	_game_settings = SettingTable{ _game_settings_table };
+	_gui_settings = SettingTable{ _gui_settings_table };
+	_linkgraph_settings = SettingTable{ _linkgraph_settings_table };
+	_locale_settings = SettingTable{ _locale_settings_table };
+	_misc_settings = SettingTable{ _misc_settings_table };
+	_network_private_settings = SettingTable{ _network_private_settings_table };
+	_network_secrets_settings = SettingTable{ _network_secrets_settings_table };
+	_network_settings = SettingTable{ _network_settings_table };
+	_news_display_settings = SettingTable{ _news_display_settings_table };
+	_old_gameopt_settings = SettingTable{ _old_gameopt_settings_table };
+	_pathfinding_settings = SettingTable{ _pathfinding_settings_table };
+	_script_settings = SettingTable{ _script_settings_table };
+	_window_settings = SettingTable{ _window_settings_table };
+	_world_settings = SettingTable{ _world_settings_table };
+}
+
+class SettingsInit
+{
+public:
+	SettingsInit(void)
+	{
+		InitSettings();
+	}
+};
+static SettingsInit _settingsInit;
+*/
+
 #if defined(_WIN32) && !defined(DEDICATED)
 SettingTable _win32_settings{ _win32_settings_table };
 #endif /* _WIN32 */

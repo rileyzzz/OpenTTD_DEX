@@ -348,7 +348,7 @@ static_assert(std::size(_news_type_data) == to_underlying(NewsType::End));
 NewsDisplay NewsTypeData::GetDisplay() const
 {
 	const SettingDesc *sd = GetSettingFromName(this->name);
-	assert(sd != nullptr && sd->IsIntSetting());
+	assert(sd != nullptr && sd->isIntSetting);
 	return static_cast<NewsDisplay>(sd->AsIntSetting()->Read(nullptr));
 }
 

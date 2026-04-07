@@ -1295,7 +1295,7 @@ struct GameOptionsWindow : Window {
 			this->SetDisplayedHelpText(pe);
 			int32_t oldvalue = value;
 
-			if (sd->IsBoolSetting()) {
+			if (sd->isBoolSetting) {
 				value ^= 1;
 			} else {
 				/* Add a dynamic step-size to the scroller. In a maximum of
@@ -1344,7 +1344,7 @@ struct GameOptionsWindow : Window {
 			}
 		} else {
 			/* Only open editbox if clicked for the second time, and only for types where it is sensible for. */
-			if (this->last_clicked == pe && !sd->IsBoolSetting() && !sd->flags.Test(SettingFlag::GuiDropdown)) {
+			if (this->last_clicked == pe && !sd->isBoolSetting && !sd->flags.Test(SettingFlag::GuiDropdown)) {
 				int64_t value64 = value;
 				/* Show the correct currency-translated value */
 				if (sd->flags.Test(SettingFlag::GuiCurrency)) value64 *= GetCurrency().rate;

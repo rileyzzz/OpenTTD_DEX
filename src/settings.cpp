@@ -307,14 +307,14 @@ static bool LoadIntList(std::optional<std::string_view> str, void *array, int ne
  * @param nelems the number of elements the array holds.
  * @param type the type of elements the array holds (eg INT8, UINT16, etc.)
  */
-std::string ListSettingDesc::FormatValue(const void *object) const
+std::string ListSettingDesc::FormatValue(const SettingDesc* d, const void *object)
 {
-	const uint8_t *p = static_cast<const uint8_t *>(GetVariableAddress(object, this->save));
+	const uint8_t *p = static_cast<const uint8_t *>(GetVariableAddress(object, ((const ListSettingDesc*)d)->save));
 
 	std::string result;
-	for (size_t i = 0; i != this->save.length; i++) {
+	for (size_t i = 0; i != ((const ListSettingDesc*)d)->save.length; i++) {
 		int64_t v;
-		switch (GetVarMemType(this->save.conv)) {
+		switch (GetVarMemType(((const ListSettingDesc*)d)->save.conv)) {
 			case SLE_VAR_BL:
 			case SLE_VAR_I8:  v = *(const   int8_t *)p; p += 1; break;
 			case SLE_VAR_U8:  v = *(const  uint8_t *)p; p += 1; break;
@@ -338,15 +338,15 @@ std::string OneOfManySettingDesc::FormatSingleValue(uint id) const
 	return std::string{this->many[id]};
 }
 
-std::string OneOfManySettingDesc::FormatValue(const void *object) const
+std::string OneOfManySettingDesc::FormatValue(const SettingDesc* d, const void *object)
 {
-	uint id = (uint)this->Read(object);
-	return this->FormatSingleValue(id);
+	uint id = (uint)((const OneOfManySettingDesc*)d)->Read(object);
+	return ((const OneOfManySettingDesc*)d)->FormatSingleValue(id);
 }
 
-std::string ManyOfManySettingDesc::FormatValue(const void *object) const
+std::string ManyOfManySettingDesc::FormatValue(const SettingDesc* d, const void *object)
 {
-	uint bitmask = (uint)this->Read(object);
+	uint bitmask = (uint)((const ManyOfManySettingDesc*)d)->Read(object);
 	if (bitmask == 0) {
 		return {};
 	}
@@ -354,7 +354,7 @@ std::string ManyOfManySettingDesc::FormatValue(const void *object) const
 	std::string result;
 	for (uint id : SetBitIterator(bitmask)) {
 		if (!result.empty()) result += '|';
-		result += this->FormatSingleValue(id);
+		result += ((const ManyOfManySettingDesc*)d)->FormatSingleValue(id);
 	}
 	return result;
 }
@@ -364,7 +364,7 @@ std::string ManyOfManySettingDesc::FormatValue(const void *object) const
  * @param str Input string that will be parsed based on the type of desc.
  * @return The value from the parse string, or the default value of the setting.
  */
-int32_t IntSettingDesc::ParseValue(std::string_view str) const
+int32_t IntSettingDesc::ParseValue2(const IntSettingDesc* d, std::string_view str)
 {
 	StringConsumer consumer{str};
 	/* The actual settings value might be int32 or uint32. Read as int64 and just cast away the high bits. */
@@ -372,51 +372,51 @@ int32_t IntSettingDesc::ParseValue(std::string_view str) const
 	if (!value.has_value()) {
 		_settings_error_list.emplace_back(
 			GetEncodedString(STR_CONFIG_ERROR),
-			GetEncodedString(STR_CONFIG_ERROR_INVALID_VALUE, str, this->GetName()));
-		return this->GetDefaultValue();
+			GetEncodedString(STR_CONFIG_ERROR_INVALID_VALUE, str, std::string(d->GetName())));
+		return d->GetDefaultValue();
 	}
 	if (consumer.AnyBytesLeft()) {
 		_settings_error_list.emplace_back(
 			GetEncodedString(STR_CONFIG_ERROR),
-			GetEncodedString(STR_CONFIG_ERROR_TRAILING_CHARACTERS, this->GetName()));
+			GetEncodedString(STR_CONFIG_ERROR_TRAILING_CHARACTERS, std::string(d->GetName())));
 	}
 	return static_cast<int32_t>(*value);
 }
 
-int32_t OneOfManySettingDesc::ParseValue(std::string_view str) const
+int32_t OneOfManySettingDesc::ParseValue2(const IntSettingDesc* d, std::string_view str)
 {
-	auto r = OneOfManySettingDesc::ParseSingleValue(str, this->many);
+	auto r = OneOfManySettingDesc::ParseSingleValue(str, ((const OneOfManySettingDesc*)d)->many);
 	/* if the first attempt of conversion from string to the appropriate value fails,
 	 * look if we have defined a converter from old value to new value. */
-	if (!r.has_value() && this->many_cnvt != nullptr) r = this->many_cnvt(str);
+	if (!r.has_value() && ((const OneOfManySettingDesc*)d)->many_cnvt != nullptr) r = ((const OneOfManySettingDesc*)d)->many_cnvt(str);
 	if (r.has_value()) return *r; // and here goes converted value
 
 	_settings_error_list.emplace_back(
 		GetEncodedString(STR_CONFIG_ERROR),
-		GetEncodedString(STR_CONFIG_ERROR_INVALID_VALUE, str, this->GetName()));
-	return this->GetDefaultValue();
+		GetEncodedString(STR_CONFIG_ERROR_INVALID_VALUE, str, std::string(((const OneOfManySettingDesc*)d)->GetName())));
+	return ((const OneOfManySettingDesc*)d)->GetDefaultValue();
 }
 
-int32_t ManyOfManySettingDesc::ParseValue(std::string_view str) const
+int32_t ManyOfManySettingDesc::ParseValue2(const IntSettingDesc* d, std::string_view str)
 {
-	auto r = LookupManyOfMany(this->many, str);
+	auto r = LookupManyOfMany(((const ManyOfManySettingDesc*)d)->many, str);
 	if (r.has_value()) return *r;
 
 	_settings_error_list.emplace_back(
 		GetEncodedString(STR_CONFIG_ERROR),
-		GetEncodedString(STR_CONFIG_ERROR_INVALID_VALUE, str, this->GetName()));
-	return this->GetDefaultValue();
+		GetEncodedString(STR_CONFIG_ERROR_INVALID_VALUE, str, std::string(((const ManyOfManySettingDesc*)d)->GetName())));
+	return ((const ManyOfManySettingDesc*)d)->GetDefaultValue();
 }
 
-int32_t BoolSettingDesc::ParseValue(std::string_view str) const
+int32_t BoolSettingDesc::ParseValue2(const IntSettingDesc* d, const std::string_view str)
 {
 	auto r = BoolSettingDesc::ParseSingleValue(str);
 	if (r.has_value()) return *r;
 
 	_settings_error_list.emplace_back(
 		GetEncodedString(STR_CONFIG_ERROR),
-		GetEncodedString(STR_CONFIG_ERROR_INVALID_VALUE, str, this->GetName()));
-	return this->GetDefaultValue();
+		GetEncodedString(STR_CONFIG_ERROR_INVALID_VALUE, str, std::string(((const BoolSettingDesc*)d)->GetName())));
+	return ((const BoolSettingDesc*)d)->GetDefaultValue();
 }
 
 /**
@@ -448,7 +448,7 @@ std::pair<StringParameter, StringParameter> IntSettingDesc::GetValueParams(int32
 		return this->get_value_params_cb(*this, value);
 	}
 
-	if (this->IsBoolSetting()) {
+	if (this->isBoolSetting) {
 		return {value != 0 ? STR_CONFIG_SETTING_ON : STR_CONFIG_SETTING_OFF, {}};
 	}
 
@@ -654,39 +654,39 @@ static void IniLoadSettings(IniFile &ini, const SettingTable &settings_table, st
 			}
 		}
 
-		sd->ParseValue(item, object);
+		(*sd->ParseValue)(sd, item, object);
 	}
 }
 
-void IntSettingDesc::ParseValue(const IniItem *item, void *object) const
+void IntSettingDesc::ParseValue(const SettingDesc* d, const IniItem *item, void *object)
 {
-	int32_t val = (item != nullptr && item->value.has_value()) ? this->ParseValue(*item->value) : this->GetDefaultValue();
-	this->MakeValueValidAndWrite(object, val);
+	int32_t val = (item != nullptr && item->value.has_value()) ? (*((const IntSettingDesc*)d)->pParseValue2)(((const IntSettingDesc*)d), *item->value) : ((const IntSettingDesc*)d)->GetDefaultValue();
+	((const IntSettingDesc*)d)->MakeValueValidAndWrite(object, val);
 }
 
-void StringSettingDesc::ParseValue(const IniItem *item, void *object) const
+void StringSettingDesc::ParseValue(const SettingDesc* d, const IniItem *item, void *object)
 {
-	std::string str{(item == nullptr) ? this->def : item->value.value_or("")};
-	this->MakeValueValid(str);
-	this->Write(object, str);
+	std::string str{(item == nullptr) ? ((const StringSettingDesc*)d)->def : item->value.value_or("")};
+	((const StringSettingDesc*)d)->MakeValueValid(str);
+	((const StringSettingDesc*)d)->Write(object, str);
 }
 
-void ListSettingDesc::ParseValue(const IniItem *item, void *object) const
+void ListSettingDesc::ParseValue(const SettingDesc* d, const IniItem *item, void *object)
 {
 	std::optional<std::string_view> str;
 	if (item != nullptr) {
 		str = item->value;
-	} else if (!this->def.empty()) {
-		str = this->def;
+	} else if (!((const ListSettingDesc*)d)->def.empty()) {
+		str = ((const ListSettingDesc*)d)->def;
 	}
-	void *ptr = GetVariableAddress(object, this->save);
-	if (!LoadIntList(str, ptr, this->save.length, GetVarMemType(this->save.conv))) {
+	void *ptr = GetVariableAddress(object, ((const ListSettingDesc*)d)->save);
+	if (!LoadIntList(str, ptr, ((const ListSettingDesc*)d)->save.length, GetVarMemType(((const ListSettingDesc*)d)->save.conv))) {
 		_settings_error_list.emplace_back(
 			GetEncodedString(STR_CONFIG_ERROR),
-			GetEncodedString(STR_CONFIG_ERROR_ARRAY, this->GetName()));
+			GetEncodedString(STR_CONFIG_ERROR_ARRAY, std::string(((const ListSettingDesc*)d)->GetName())));
 
 		/* Use default */
-		LoadIntList(this->def, ptr, this->save.length, GetVarMemType(this->save.conv));
+		LoadIntList(((const ListSettingDesc*)d)->def, ptr, ((const ListSettingDesc*)d)->save.length, GetVarMemType(((const ListSettingDesc*)d)->save.conv));
 	}
 }
 
@@ -726,52 +726,54 @@ static void IniSaveSettings(IniFile &ini, const SettingTable &settings_table, st
 
 		IniItem &item = group->GetOrCreateItem(s);
 
-		if (!item.value.has_value() || !sd->IsSameValue(&item, object)) {
+		if (!item.value.has_value() || !(*sd->IsSameValue)(sd, &item, object)) {
 			/* The value is different, that means we have to write it to the ini */
-			item.value.emplace(sd->FormatValue(object));
+			item.value.emplace((*sd->FormatValue)(sd, object));
 		}
 	}
 }
 
-std::string IntSettingDesc::FormatValue(const void *object) const
+std::string IntSettingDesc::FormatValue(const SettingDesc* d, const void *object)
 {
+	const IntSettingDesc* desc = (const IntSettingDesc*)d;
+
 	int64_t i;
-	if (IsSignedVarMemType(this->save.conv)) {
-		i = this->Read(object);
+	if (IsSignedVarMemType(desc->save.conv)) {
+		i = desc->Read(object);
 	} else {
-		i = (uint32_t)this->Read(object);
+		i = (uint32_t)desc->Read(object);
 	}
 	return fmt::format("{}", i);
 }
 
-std::string BoolSettingDesc::FormatValue(const void *object) const
+std::string BoolSettingDesc::FormatValue(const SettingDesc* d, const void *object)
 {
-	bool val = this->Read(object) != 0;
+	bool val = ((const BoolSettingDesc*)d)->Read(object) != 0;
 	return val ? "true" : "false";
 }
 
-bool IntSettingDesc::IsSameValue(const IniItem *item, void *object) const
+bool IntSettingDesc::IsSameValue(const SettingDesc* d, const IniItem *item, void *object)
 {
-	int32_t item_value = static_cast<int32_t>(this->ParseValue(*item->value));
-	int32_t object_value = this->Read(object);
+	int32_t item_value = static_cast<int32_t>((*((const IntSettingDesc*)d)->pParseValue2)(((const IntSettingDesc*)d), *item->value));
+	int32_t object_value = ((const IntSettingDesc*)d)->Read(object);
 	return item_value == object_value;
 }
 
-bool IntSettingDesc::IsDefaultValue(void *object) const
+bool IntSettingDesc::IsDefaultValue(const SettingDesc* d, void *object)
 {
-	int32_t object_value = this->Read(object);
-	return this->GetDefaultValue() == object_value;
+	int32_t object_value = ((const IntSettingDesc*)d)->Read(object);
+	return ((const IntSettingDesc*)d)->GetDefaultValue() == object_value;
 }
 
-void IntSettingDesc::ResetToDefault(void *object) const
+void IntSettingDesc::ResetToDefault(const SettingDesc* d, void *object)
 {
-	this->Write(object, this->GetDefaultValue());
+	((const IntSettingDesc*)d)->Write(object, ((const IntSettingDesc*)d)->GetDefaultValue());
 }
 
-std::string StringSettingDesc::FormatValue(const void *object) const
+std::string StringSettingDesc::FormatValue(const SettingDesc* d, const void *object)
 {
-	const std::string &str = this->Read(object);
-	switch (GetVarMemType(this->save.conv)) {
+	const std::string &str = ((const StringSettingDesc*)d)->Read(object);
+	switch (GetVarMemType(((const StringSettingDesc*)d)->save.conv)) {
 		case SLE_VAR_STR: return str;
 
 		case SLE_VAR_STRQ:
@@ -784,40 +786,40 @@ std::string StringSettingDesc::FormatValue(const void *object) const
 	}
 }
 
-bool StringSettingDesc::IsSameValue(const IniItem *item, void *object) const
+bool StringSettingDesc::IsSameValue(const SettingDesc* d, const IniItem *item, void *object)
 {
 	/* The ini parsing removes the quotes, which are needed to retain the spaces in STRQs,
 	 * so those values are always different in the parsed ini item than they should be. */
-	if (GetVarMemType(this->save.conv) == SLE_VAR_STRQ) return false;
+	if (GetVarMemType(((const StringSettingDesc*)d)->save.conv) == SLE_VAR_STRQ) return false;
 
-	const std::string &str = this->Read(object);
+	const std::string &str = ((const StringSettingDesc*)d)->Read(object);
 	return item->value->compare(str) == 0;
 }
 
-bool StringSettingDesc::IsDefaultValue(void *object) const
+bool StringSettingDesc::IsDefaultValue(const SettingDesc* d, void *object)
 {
-	const std::string &str = this->Read(object);
-	return this->def == str;
+	const std::string &str = ((const StringSettingDesc*)d)->Read(object);
+	return ((const StringSettingDesc*)d)->def == str;
 }
 
-void StringSettingDesc::ResetToDefault(void *object) const
+void StringSettingDesc::ResetToDefault(const SettingDesc* d, void *object)
 {
-	this->Write(object, this->def);
+	((const StringSettingDesc*)d)->Write(object, ((const StringSettingDesc*)d)->def);
 }
 
-bool ListSettingDesc::IsSameValue(const IniItem *, void *) const
+bool ListSettingDesc::IsSameValue(const SettingDesc* d, const IniItem *, void *)
 {
 	/* Checking for equality is way more expensive than just writing the value. */
 	return false;
 }
 
-bool ListSettingDesc::IsDefaultValue(void *) const
+bool ListSettingDesc::IsDefaultValue(const SettingDesc* d, void *)
 {
 	/* Defaults of lists are often complicated, and hard to compare. */
 	return false;
 }
 
-void ListSettingDesc::ResetToDefault(void *) const
+void ListSettingDesc::ResetToDefault(const SettingDesc* d, void *)
 {
 	/* Resetting a list to default is not supported. */
 	NOT_REACHED();
@@ -1651,7 +1653,8 @@ static const SettingDesc *GetSettingFromName(std::string_view name, const Settin
 	for (auto &desc : settings) {
 		const SettingDesc *sd = GetSettingDesc(desc);
 		if (!SlIsObjectCurrentlyValid(sd->save.version_from, sd->save.version_to)) continue;
-		if (sd->GetName().ends_with(short_name_suffix)) return sd;
+		std::string tmp(sd->GetName());
+		if (tmp.ends_with(short_name_suffix)) return sd;
 	}
 
 	return nullptr;
@@ -1774,7 +1777,7 @@ CommandCost CmdChangeSetting(DoCommandFlags flags, const std::string &name, int3
 
 	if (sd == nullptr) return CMD_ERROR;
 	if (!SlIsObjectCurrentlyValid(sd->save.version_from, sd->save.version_to)) return CMD_ERROR;
-	if (!sd->IsIntSetting()) return CMD_ERROR;
+	if (!sd->isIntSetting) return CMD_ERROR;
 
 	if (!sd->IsEditable(true)) return CMD_ERROR;
 
@@ -1799,7 +1802,7 @@ CommandCost CmdChangeCompanySetting(DoCommandFlags flags, const std::string &nam
 	const SettingDesc *sd = GetCompanySettingFromName(name);
 
 	if (sd == nullptr) return CMD_ERROR;
-	if (!sd->IsIntSetting()) return CMD_ERROR;
+	if (!sd->isIntSetting) return CMD_ERROR;
 
 	if (flags.Test(DoCommandFlag::Execute)) {
 		sd->AsIntSetting()->ChangeValue(&Company::Get(_current_company)->settings, value);
@@ -1933,11 +1936,11 @@ void IConsoleSetSetting(std::string_view name, std::string_view value, bool forc
 	}
 
 	bool success = true;
-	if (sd->IsStringSetting()) {
+	if (sd->isStringSetting) {
 		success = SetSettingValue(sd->AsStringSetting(), value, force_newgame);
-	} else if (sd->IsIntSetting()) {
+	} else if (sd->isIntSetting) {
 		const IntSettingDesc *isd = sd->AsIntSetting();
-		size_t val = isd->ParseValue(value);
+		size_t val = (*isd->pParseValue2)(isd, value);
 		if (!_settings_error_list.empty()) {
 			IConsolePrint(CC_ERROR, "'{}' is not a valid value for this setting.", value);
 			_settings_error_list.clear();
@@ -1978,10 +1981,10 @@ void IConsoleGetSetting(std::string_view name, bool force_newgame)
 
 	const void *object = (_game_mode == GM_MENU || force_newgame) ? &_settings_newgame : &_settings_game;
 
-	if (sd->IsStringSetting()) {
+	if (sd->isStringSetting) {
 		IConsolePrint(CC_INFO, "Current value for '{}' is '{}'.", sd->GetName(), sd->AsStringSetting()->Read(object));
-	} else if (sd->IsIntSetting()) {
-		std::string value = sd->FormatValue(object);
+	} else if (sd->isIntSetting) {
+		std::string value = (*sd->FormatValue)(sd, object);
 		const IntSettingDesc *int_setting = sd->AsIntSetting();
 		auto [min_val, max_val] = int_setting->GetRange();
 		auto def_val = int_setting->GetDefaultValue();
@@ -1995,8 +1998,9 @@ static void IConsoleListSettingsTable(const SettingTable &table, std::string_vie
 	for (auto &desc : table) {
 		const SettingDesc *sd = GetSettingDesc(desc);
 		if (!SlIsObjectCurrentlyValid(sd->save.version_from, sd->save.version_to)) continue;
-		if (!prefilter.empty() && sd->GetName().find(prefilter) == std::string::npos) continue;
-		IConsolePrint(CC_DEFAULT, "{} = {}", sd->GetName(), sd->FormatValue(&GetGameSettings()));
+		std::string tmp(sd->GetName());
+		if (!prefilter.empty() && tmp.find(prefilter) == std::string::npos) continue;
+		IConsolePrint(CC_DEFAULT, "{} = {}", sd->GetName(), (*sd->FormatValue)(sd, &GetGameSettings()));
 	}
 }
 

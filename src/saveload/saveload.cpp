@@ -1628,7 +1628,9 @@ static size_t SlCalcTableHeader(const SaveLoadTable &slt)
 		if (!SlIsObjectValidInSavegame(sld)) continue;
 
 		length += SlCalcConvFileLen(SLE_UINT8);
-		length += SlCalcStdStringLen(&sld.name);
+
+		std::string tmp(sld.nameBuf);
+		length += SlCalcStdStringLen(&tmp);
 	}
 
 	length += SlCalcConvFileLen(SLE_UINT8); // End-of-list entry.
@@ -1636,7 +1638,7 @@ static size_t SlCalcTableHeader(const SaveLoadTable &slt)
 	for (auto &sld : slt) {
 		if (!SlIsObjectValidInSavegame(sld)) continue;
 		if (sld.cmd == SL_STRUCTLIST || sld.cmd == SL_STRUCT) {
-			length += SlCalcTableHeader(sld.handler->GetDescription());
+			length += SlCalcTableHeader(sld.rawHandler->GetDescription());
 		}
 	}
 
@@ -1689,7 +1691,7 @@ size_t SlCalcObjMemberLength(const void *object, const SaveLoad &sld)
 			/* Pretend that we are saving to collect the object size. Other
 			 * means are difficult, as we don't know the length of the list we
 			 * are about to store. */
-			sld.handler->Save(const_cast<void *>(object));
+			sld.rawHandler->Save(const_cast<void *>(object));
 			size_t length = _sl.obj_len;
 
 			_sl.obj_len = old_obj_len;
@@ -1776,7 +1778,7 @@ static bool SlObjectMember(void *object, const SaveLoad &sld)
 						/* Store in the savegame if this struct was written or not. */
 						SlSetStructListLength(SlCalcObjMemberLength(object, sld) > SlGetArrayLength(1) ? 1 : 0);
 					}
-					sld.handler->Save(object);
+					sld.rawHandler->Save(object);
 					break;
 				}
 
@@ -1784,7 +1786,7 @@ static bool SlObjectMember(void *object, const SaveLoad &sld)
 					if (sld.cmd == SL_STRUCT && !IsSavegameVersionBefore(SLV_SAVELOAD_LIST_LENGTH)) {
 						SlGetStructListLength(1);
 					}
-					sld.handler->LoadCheck(object);
+					sld.rawHandler->LoadCheck(object);
 					break;
 				}
 
@@ -1792,12 +1794,12 @@ static bool SlObjectMember(void *object, const SaveLoad &sld)
 					if (sld.cmd == SL_STRUCT && !IsSavegameVersionBefore(SLV_SAVELOAD_LIST_LENGTH)) {
 						SlGetStructListLength(1);
 					}
-					sld.handler->Load(object);
+					sld.rawHandler->Load(object);
 					break;
 				}
 
 				case SLA_PTRS:
-					sld.handler->FixPointers(object);
+					sld.rawHandler->FixPointers(object);
 					break;
 
 				case SLA_NULL: break;
@@ -1861,6 +1863,9 @@ void SlObject(void *object, const SaveLoadTable &slt)
  * is not known to the code. This means we are going to skip it.
  */
 class SlSkipHandler : public SaveLoadHandler {
+public:
+	static SlSkipHandler Instance;
+
 	void Save(void *) const override
 	{
 		NOT_REACHED();
@@ -1890,6 +1895,9 @@ class SlSkipHandler : public SaveLoadHandler {
 	}
 };
 
+SlSkipHandler SlSkipHandler::Instance;
+
+
 /**
  * Save or Load a table header.
  * @note a table-header can never contain more than 65535 fields.
@@ -1913,7 +1921,7 @@ std::vector<SaveLoad> SlTableHeader(const SaveLoadTable &slt)
 
 				/* Check that there is only one active SaveLoad for a given name. */
 				assert(key_lookup.find(sld.name) == key_lookup.end());
-				key_lookup[sld.name] = &sld;
+				key_lookup[sld.nameBuf] = &sld;
 			}
 
 			while (true) {
@@ -1929,7 +1937,7 @@ std::vector<SaveLoad> SlTableHeader(const SaveLoadTable &slt)
 					/* SLA_LOADCHECK triggers this debug statement a lot and is perfectly normal. */
 					Debug(sl, _sl.action == SLA_LOAD ? 2 : 6, "Field '{}' of type 0x{:02x} not found, skipping", key, type);
 
-					std::shared_ptr<SaveLoadHandler> handler = nullptr;
+					SaveLoadHandler* handler = nullptr;
 					SaveLoadType saveload_type;
 					switch (type & SLE_FILE_TYPE_MASK) {
 						case SLE_FILE_STRING:
@@ -1940,7 +1948,7 @@ std::vector<SaveLoad> SlTableHeader(const SaveLoadTable &slt)
 						case SLE_FILE_STRUCT:
 							/* Structs are always marked with SLE_FILE_HAS_LENGTH_FIELD as SL_STRUCT is seen as a list of 0/1 in length. */
 							saveload_type = SL_STRUCTLIST;
-							handler = std::make_shared<SlSkipHandler>();
+							handler = &SlSkipHandler::Instance;
 							break;
 
 						default:
@@ -1949,7 +1957,14 @@ std::vector<SaveLoad> SlTableHeader(const SaveLoadTable &slt)
 					}
 
 					/* We don't know this field, so read to nothing. */
-					saveloads.emplace_back(std::move(key), saveload_type, ((VarType)type & SLE_FILE_TYPE_MASK) | SLE_VAR_NULL, 1, SL_MIN_VERSION, SL_MAX_VERSION, nullptr, 0, std::move(handler));
+					// std::move(key)
+					SaveLoad dst{{}, saveload_type, ((VarType)type & SLE_FILE_TYPE_MASK) | SLE_VAR_NULL, 1, SL_MIN_VERSION, SL_MAX_VERSION, nullptr, 0, handler};
+					
+					// Frick you!
+					#undef snprintf
+					snprintf(dst.nameBuf, sizeof(dst.nameBuf), "%s", key.c_str());
+
+					saveloads.emplace_back(std::move(dst));
 					continue;
 				}
 
@@ -1968,7 +1983,7 @@ std::vector<SaveLoad> SlTableHeader(const SaveLoadTable &slt)
 
 			for (auto &sld : saveloads) {
 				if (sld.cmd == SL_STRUCTLIST || sld.cmd == SL_STRUCT) {
-					sld.handler->load_description = SlTableHeader(sld.handler->GetDescription());
+					sld.rawHandler->load_description = SlTableHeader(sld.rawHandler->GetDescription());
 				}
 			}
 
@@ -1991,7 +2006,9 @@ std::vector<SaveLoad> SlTableHeader(const SaveLoadTable &slt)
 				assert(type != SLE_FILE_END);
 
 				SlSaveLoadConv(&type, SLE_UINT8);
-				SlStdString(const_cast<std::string *>(&sld.name), SLE_STR);
+				std::string tmpBuf(sld.nameBuf);
+				// SlStdString(const_cast<std::string *>(&sld.name), SLE_STR);
+				SlStdString(&tmpBuf, SLE_STR);
 			}
 
 			/* Add an end-of-header marker. */
@@ -2006,7 +2023,7 @@ std::vector<SaveLoad> SlTableHeader(const SaveLoadTable &slt)
 					NeedLength old_need_length = _sl.need_length;
 					_sl.need_length = NL_NONE;
 
-					SlTableHeader(sld.handler->GetDescription());
+					SlTableHeader(sld.rawHandler->GetDescription());
 
 					_sl.need_length = old_need_length;
 				}
@@ -2046,9 +2063,9 @@ std::vector<SaveLoad> SlCompatTableHeader(const SaveLoadTable &slt, const SaveLo
 	std::map<std::string, std::vector<const SaveLoad *>> key_lookup;
 	for (auto &sld : slt) {
 		/* All entries should have a name; otherwise the entry should just be removed. */
-		assert(!sld.name.empty());
+		assert(!strlen(sld.nameBuf));
 
-		key_lookup[sld.name].push_back(&sld);
+		key_lookup[sld.nameBuf].push_back(&sld);
 	}
 
 	for (auto &slc : slct) {
@@ -2056,7 +2073,7 @@ std::vector<SaveLoad> SlCompatTableHeader(const SaveLoadTable &slt, const SaveLo
 			/* In old savegames there can be data we no longer care for. We
 			 * skip this by simply reading the amount of bytes indicated and
 			 * send those to /dev/null. */
-			saveloads.emplace_back("", SL_NULL, GetVarFileType(slc.null_type) | SLE_VAR_NULL, slc.null_length, slc.version_from, slc.version_to, nullptr, 0, nullptr);
+			saveloads.emplace_back(SaveLoad{{}, SL_NULL, GetVarFileType(slc.null_type) | SLE_VAR_NULL, slc.null_length, slc.version_from, slc.version_to, nullptr, 0, nullptr});
 		} else {
 			auto sld_it = key_lookup.find(slc.name);
 			/* If this branch triggers, it means that an entry in the
@@ -2077,7 +2094,7 @@ std::vector<SaveLoad> SlCompatTableHeader(const SaveLoadTable &slt, const SaveLo
 	for (auto &sld : saveloads) {
 		if (!SlIsObjectValidInSavegame(sld)) continue;
 		if (sld.cmd == SL_STRUCTLIST || sld.cmd == SL_STRUCT) {
-			sld.handler->load_description = SlCompatTableHeader(sld.handler->GetDescription(), sld.handler->GetCompatDescription());
+			sld.rawHandler->load_description = SlCompatTableHeader(sld.rawHandler->GetDescription(), sld.rawHandler->GetCompatDescription());
 		}
 	}
 
@@ -2905,7 +2922,7 @@ static void ResetSettings()
 		if (sd->flags.Test(SettingFlag::NotInSave)) continue;
 		if (sd->flags.Test(SettingFlag::NoNetworkSync) && _networking && !_network_server) continue;
 
-		sd->ResetToDefault(&_settings_game);
+		(*sd->ResetToDefault)(sd, &_settings_game);
 	}
 }
 

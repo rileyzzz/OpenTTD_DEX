@@ -352,7 +352,7 @@ struct CheatWindow : Window {
 
 		auto [min_val, max_val] = sd->GetRange();
 		int32_t value = sd->Read(&GetGameSettings());
-		if (sd->IsBoolSetting()) {
+		if (sd->isBoolSetting) {
 			/* Draw checkbox for boolean-value either on/off */
 			DrawBoolButton(buttons.left, buttons.top, COLOUR_YELLOW, COLOUR_GREY, value != 0, editable);
 		} else if (sd->flags.Test(SettingFlag::GuiDropdown)) {
@@ -506,7 +506,7 @@ struct CheatWindow : Window {
 			ChangeSettingValue(sd, x);
 		} else {
 			/* Only open editbox if clicked for the second time, and only for types where it is sensible for. */
-			if (this->last_clicked_setting == sd && !sd->IsBoolSetting() && !sd->flags.Test(SettingFlag::GuiDropdown)) {
+			if (this->last_clicked_setting == sd && !sd->isBoolSetting && !sd->flags.Test(SettingFlag::GuiDropdown)) {
 				int64_t value64 = sd->Read(&GetGameSettings());
 
 				/* Show the correct currency-translated value */
@@ -529,7 +529,7 @@ struct CheatWindow : Window {
 	{
 		int32_t value = sd->Read(&GetGameSettings());
 		int32_t oldvalue = value;
-		if (sd->IsBoolSetting()) {
+		if (sd->isBoolSetting) {
 			value ^= 1;
 		} else {
 			/* don't allow too fast scrolling */

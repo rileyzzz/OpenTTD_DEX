@@ -281,7 +281,7 @@ void SettingEntry::DrawSetting(GameSettings *settings_ptr, int left, int right, 
 
 	auto [min_val, max_val] = sd->GetRange();
 	int32_t value = sd->Read(ResolveObject(settings_ptr, sd));
-	if (sd->IsBoolSetting()) {
+	if (sd->isBoolSetting) {
 		/* Draw checkbox for boolean-value either on/off */
 		DrawBoolButton(buttons_left, button_y, COLOUR_YELLOW, COLOUR_MAUVE, value != 0, editable);
 	} else if (sd->flags.Test(SettingFlag::GuiDropdown)) {

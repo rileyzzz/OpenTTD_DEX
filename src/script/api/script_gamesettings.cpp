@@ -19,7 +19,7 @@
 /* static */ bool ScriptGameSettings::IsValid(const std::string &setting)
 {
 	const SettingDesc *sd = GetSettingFromName(setting);
-	return sd != nullptr && sd->IsIntSetting();
+	return sd != nullptr && sd->isIntSetting;
 }
 
 /* static */ SQInteger ScriptGameSettings::GetValue(const std::string &setting)
