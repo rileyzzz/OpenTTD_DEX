@@ -1,0 +1,221 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System;
+@using System.IO;
+@using System.Numerics;
+@using System.Buffers.Binary;
+@using System.Threading.Tasks;
+
+@inherits PanelComponent
+
+<root>
+    <img @ref="Canvas" class="module-canvas">
+</root>
+
+@code
+{
+    public static Image Canvas { get; set; }
+
+    private Dextr.Module Module;
+    private static Color32[] Palette = new Color32[256];
+    // private static Color32[] ImgBuffer = new Color32[320 * 200];
+
+    private static Color32[] ScratchImgBuffer = null;
+
+    public static Texture Framebuf;
+    public static SoundStream Snd;
+    private static SoundHandle SndHandle;
+    private static short[] SndSamples = new short[512 * 2];
+    private static bool SoundUpdate = false;
+    private static bool EscapeState = false;
+
+    private static ModuleComponent Instance;
+
+    public static bool MouseCursorVisible
+    {
+        set
+        {
+            Instance.Panel?.SetMouseCapture(!value);
+        }
+    }
+
+    private bool Started = false;
+    private bool InitOk = false;
+
+    protected override void OnEnabled()
+    {
+        Instance = this;
+
+        CopyBuiltinFiles();
+
+        // Snd = new SoundStream(11025, 2);
+        // SndHandle = Snd.Play();
+
+        Module = new Dextr.Module();
+    }
+
+    private void CopyBuiltinFiles()
+    {
+        // const string wadname = "DOOM1.WAD";
+        // if (FileSystem.Data.FileExists(wadname))
+        //     return;
+
+        // Span<byte> wad = FileSystem.Mounted.ReadAllBytes(wadname);
+        // using var f = FileSystem.Data.OpenWrite(wadname);
+        // f.Write(wad);
+    }
+
+    // public static void SetPalette(ReadOnlySpan<byte> palette)
+    // {
+    //     palette.CopyTo(Palette);
+    // }
+
+    public static void UpdateSound(ReadOnlySpan<byte> mixbuf)
+    {
+        // Don't get behind.
+        if (Snd.QueuedSampleCount > SndSamples.Length * 4)
+            return;
+
+        // Copy sound buffer.
+        for (int i = 0; i < SndSamples.Length; i++)
+        {
+            SndSamples[i] =
+                (short)((mixbuf[i * 2 + 0]) |
+                (mixbuf[i * 2 + 1] << 8));
+        }
+
+        Snd.WriteData(SndSamples);
+
+        // SoundUpdate = true;
+    }
+
+    public static void UpdatePalette(ReadOnlySpan<byte> range, int offset)
+    {
+        int count = range.Length / 4;
+        for (int i = 0; i < count; i++)
+        {
+            uint col = BinaryPrimitives.ReadUInt32LittleEndian(range.Slice(i * 4, 4));
+            Palette[offset + i] = Color.FromRgb(col).ToColor32();
+        }
+        // palette.CopyTo(Palette, offset);
+    }
+
+	  public static void VideoInit(int width, int height)
+	  {
+        VideoResize(width, height);
+	  }
+
+    public static void VideoResize(int width, int height)
+    {
+        Framebuf = Texture.Create(width, height, ImageFormat.RGBA8888)
+            .WithDynamicUsage()
+            .Finish();
+
+        Canvas.Texture = Framebuf;
+        Log.Info($"Set framebuffer texture {width}x{height}");
+    }
+
+    public static void VideoShutdown()
+    {
+
+    }
+
+    public static void Blit(ReadOnlySpan<byte> video, int bpp, int srcPitch, int imgX, int imgY, int w, int h)
+    {
+        int byteStride = (bpp / 8);
+
+        int bufferSize = (w * h) * byteStride;
+        if (ScratchImgBuffer == null || ScratchImgBuffer.Length < bufferSize)
+        {
+            ScratchImgBuffer = new Color32[bufferSize];
+        }
+
+        int srcOffset = (imgY * srcPitch) + imgX;
+        int bufOffset = 0;
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                Color32 color = default;
+                if (bpp == 8)
+                {
+                    int i = video[srcOffset + x];
+                    color = Palette[(int)i];
+                }
+                else if (bpp == 16)
+                {
+                    ushort i = BinaryPrimitives.ReadUInt16LittleEndian(video.Slice(srcOffset + x * 2, 2));
+                    color = Palette[(int)i];
+                }
+                else if (bpp == 24)
+                {
+                    uint i = ((uint)video[srcOffset + x])
+                           | ((uint)video[srcOffset + x + 1] << 8)
+                           | ((uint)video[srcOffset + x + 2] << 16);
+                    color = Palette[(int)i];
+                }
+                else if (bpp == 32)
+                {
+                    uint i = BinaryPrimitives.ReadUInt32LittleEndian(video.Slice(srcOffset + x * 4, 4));
+                    color = Palette[(int)i];
+                }
+                ScratchImgBuffer[bufOffset++] = color;
+            }
+
+            srcOffset += srcPitch;
+        }
+
+        if (Framebuf != null)
+        {
+            // Log.Info("Blit");
+            Framebuf.Update(ScratchImgBuffer, imgX, imgY, w, h);
+        }
+    }
+
+
+    protected override void OnTreeBuilt()
+    {
+        if (Canvas.IsValid())
+        {
+            // Framebuf = Texture.Create(320, 200, ImageFormat.RGBA8888)
+            //     .WithDynamicUsage()
+            //     .Finish();
+
+            // Canvas.Texture = Framebuf;
+            // Log.Info($"Set framebuffer texture");
+
+            if (!Started)
+            {
+                Started = true;
+                Module.Start();
+                InitOk = true;
+            }
+        }
+
+        base.OnTreeBuilt();
+    }
+
+    protected override void OnStart()
+    {
+        base.OnStart();
+
+    }
+
+    protected override void OnUpdate()
+    {
+        base.OnUpdate();
+
+
+        // BuildEvents();
+        if (InitOk)
+        {
+            Module.DoMainLoop();
+        }
+    }
+
+    protected override void OnPreRender()
+    {
+        base.OnPreRender();
+
+    }
+}

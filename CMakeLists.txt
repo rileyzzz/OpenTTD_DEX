@@ -117,9 +117,11 @@ set(CMAKE_THREAD_PREFER_PTHREAD YES)
 # Make sure we have Threads available.
 # find_package(Threads REQUIRED)
 
+find_package(LibLZMA)
+
 if(NOT EMSCRIPTEN)
 find_package(ZLIB)
-find_package(LibLZMA)
+# find_package(LibLZMA)
 find_package(LZO)
 find_package(PNG)
 endif()

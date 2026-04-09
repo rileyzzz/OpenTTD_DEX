@@ -34,6 +34,13 @@ if(NOT OPTION_DEDICATED)
     )
 endif()
 
+if (EMSCRIPTEN)
+    add_files(
+        dex_v.cpp
+        dex_v.h
+    )
+endif()
+
 add_files(
     dedicated_v.cpp
     dedicated_v.h
