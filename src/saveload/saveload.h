@@ -595,7 +595,11 @@ public:
 template <class TImpl, class TObject>
 class DefaultSaveLoadHandler : public SaveLoadHandler {
 public:
-	static inline TImpl Instance;
+	static inline TImpl* GetInstance(void)
+	{
+		static TImpl inst;
+		return &inst;
+	}
 
 	SaveLoadTable GetDescription() const override { return static_cast<const TImpl *>(this)->description; }
 	SaveLoadCompatTable GetCompatDescription() const override { return static_cast<const TImpl *>(this)->compat_description; }
@@ -1165,7 +1169,7 @@ inline constexpr bool SlCheckVarSize(SaveLoadType cmd, VarType type, size_t leng
  * @param from     First savegame version that has the struct.
  * @param to       Last savegame version that has the struct.
  */
-#define SLEG_CONDSTRUCT(name, handler, from, to) SaveLoad {name, SL_STRUCT, 0, 0, from, to, nullptr, 0, &handler::Instance}
+#define SLEG_CONDSTRUCT(name, handler, from, to) SaveLoad {name, SL_STRUCT, 0, 0, from, to, nullptr, 0, handler::GetInstance()}
 
 /**
  * Storage of a global reference list in some savegame versions.
@@ -1194,7 +1198,7 @@ inline constexpr bool SlCheckVarSize(SaveLoadType cmd, VarType type, size_t leng
  * @param from     First savegame version that has the list.
  * @param to       Last savegame version that has the list.
  */
-#define SLEG_CONDSTRUCTLIST(name, handler, from, to) SaveLoad {name, SL_STRUCTLIST, 0, 0, from, to, nullptr, 0, &handler::Instance}
+#define SLEG_CONDSTRUCTLIST(name, handler, from, to) SaveLoad {name, SL_STRUCTLIST, 0, 0, from, to, nullptr, 0, handler::GetInstance()}
 
 /**
  * Storage of a global variable in every savegame version.

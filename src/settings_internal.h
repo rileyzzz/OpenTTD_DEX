@@ -104,7 +104,8 @@ struct SettingDesc {
 	 * @return The name of the setting.
 	 */
 	// constexpr const std::string &GetName() const
-	constexpr const char* GetName() const
+	// constexpr const char* GetName() const
+	std::string GetName() const
 	{
 		return this->save.nameBuf;
 	}

@@ -384,6 +384,12 @@ public:
 
 class SlCompanyOldEconomy : public SlCompanyEconomy {
 public:
+	static inline SlCompanyOldEconomy* GetInstance(void)
+	{
+		static SlCompanyOldEconomy inst;
+		return &inst;
+	}
+
 	void Save(CompanyProperties *c) const override
 	{
 		SlSetStructListLength(c->num_valid_stat_ent);

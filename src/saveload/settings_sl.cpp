@@ -88,7 +88,8 @@ static std::vector<SaveLoad> GetSettingsDesc(const SettingTable &settings, bool 
 				SaveLoad sl{{}, sd->save.cmd, GetVarFileType(sd->save.conv) | SLE_VAR_NULL, sd->save.length, sd->save.version_from, sd->save.version_to, nullptr, 0, nullptr};
 				// Frick you!
 				#undef snprintf
-				snprintf(sl.nameBuf, sizeof(sl.nameBuf), "%s", sd->GetName());
+				std::string tmp = sd->GetName();
+				snprintf(sl.nameBuf, sizeof(sl.nameBuf), "%s", tmp.c_str());
 
 				saveloads.emplace_back(std::move(sl));
 			}
