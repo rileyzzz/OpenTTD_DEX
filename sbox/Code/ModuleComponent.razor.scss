@@ -10,11 +10,12 @@ ModuleComponent {
     background-repeat: no-repeat;
     background-position: center;
 
-    /*image-rendering: pixelated;*/
-    border: 2px solid white;
+    image-rendering: pixelated;
     /*aspect-ratio: 8 / 5;*/
     width: 100%;
     height: 100%;
+    pointer-events: all;
+    cursor: none;
     /*object-fit: cover;*/
   }
 }

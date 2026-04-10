@@ -23,6 +23,7 @@ internal partial class Module
     public static void Bootstrap(int downloadedBytes, int totalBytes)
     {
         Log.Info($"Bootstrap {downloadedBytes}/{totalBytes}.");
+		Sandbox.MouseButtons b;
     }
 
     public static void BootstrapFailed()

@@ -47,7 +47,7 @@ std::optional<std::string_view> VideoDriver_Dex::Start(const StringList &param)
 
 	current_screen_size = GetScreenSize();
 
-	if (!CreateFramebuffer(current_screen_size.width, current_screen_size.height, false))
+	if (!CreateFramebuffer(current_screen_size.width, current_screen_size.height))
 	{
 		return "Failed to create framebuffer.";
 	}
@@ -89,7 +89,7 @@ void VideoDriver_Dex::ClientSizeChanged(int w, int h, bool force)
 }
 
 /** Create the main window. */
-bool VideoDriver_Dex::CreateFramebuffer(uint w, uint h, bool resize)
+bool VideoDriver_Dex::CreateFramebuffer(uint w, uint h)
 {
 	DEX_ASM_ARGS({
 		OpenTTD.ModuleComponent.VideoInit($0, $1);
@@ -97,6 +97,7 @@ bool VideoDriver_Dex::CreateFramebuffer(uint w, uint h, bool resize)
 
 	this->ClientSizeChanged(w, h, true);
 
+	_cursor.in_window = true;
 	return true;
 }
 
@@ -176,7 +177,6 @@ bool VideoDriver_Dex::AllocateBackingStore(int w, int h, bool force)
 {
 	int bpp = BlitterFactory::GetCurrentBlitter()->GetScreenDepth();
 
-	Dimension screenSize = GetScreenSize();
 	if (!force && w == m_videoWidth && h == m_videoHeight) return false;
 
 	/* Free any previously allocated rgb surface. */
@@ -252,21 +252,26 @@ void VideoDriver_Dex::LoopOnce()
 
 void VideoDriver_Dex::MainLoop()
 {
-	// Handle events.
-	Dimension screenSize = GetScreenSize();
-	if (screenSize != current_screen_size)
-	{
-		current_screen_size = screenSize;
-		CreateFramebuffer(current_screen_size.width, current_screen_size.height, true);
-	}
-
 	/* Run the main loop event-driven, based on RequestAnimationFrame. */
 	dex_set_main_loop_arg(&this->EmscriptenLoop, this, 0, 1);
+
+	DEX_ASM_ARGS({
+		int fnMouseDown = Mem.LoadInt($1);
+		int fnMouseUp = Mem.LoadInt($2);
+
+		OpenTTD.ModuleComponent.MouseDownCallback = (int btn) => {
+			Mem.CallFuncPtr(fnMouseDown, $0, btn);
+		};
+
+		OpenTTD.ModuleComponent.MouseUpCallback = (int btn) => {
+			Mem.CallFuncPtr(fnMouseUp, $0, btn);
+		};
+	}, this, &VideoDriver_Dex::OnMouseDown, &VideoDriver_Dex::OnMouseUp);
 }
 
 bool VideoDriver_Dex::ChangeResolution(int w, int h)
 {
-	return CreateFramebuffer(w, h, true);
+	return CreateFramebuffer(w, h);
 }
 
 bool VideoDriver_Dex::ToggleFullscreen(bool fullscreen)
@@ -280,7 +285,7 @@ bool VideoDriver_Dex::AfterBlitterChange()
 	assert(BlitterFactory::GetCurrentBlitter()->GetScreenDepth() != 0);
 
 	current_screen_size = GetScreenSize();
-	return CreateFramebuffer(current_screen_size.width, current_screen_size.height, false);
+	return CreateFramebuffer(current_screen_size.width, current_screen_size.height);
 }
 
 bool VideoDriver_Dex::ClaimMousePointer()
@@ -329,8 +334,94 @@ void VideoDriver_Dex::InputLoop()
 }
 
 
+void VideoDriver_Dex::OnMouseDown(int button)
+{
+	m_mouseDownFlags |= button;
+}
+
+
+void VideoDriver_Dex::OnMouseUp(int button)
+{
+	m_mouseUpFlags |= button;
+}
+
+
 bool VideoDriver_Dex::PollEvent()
 {
+	// Handle events.
+	// Dimension screenSize = GetScreenSize();
+	// if (screenSize != current_screen_size)
+	// {
+	// 	current_screen_size = screenSize;
+	// 	CreateFramebuffer(current_screen_size.width, current_screen_size.height);
+	// }
+
+	float mx = 0.f;
+	float my = 0.f;
+
+	DEX_ASM_ARGS({
+		var mousePos = Sandbox.Mouse.Position;
+		Mem.Store($0, mousePos.x);
+		Mem.Store($1, mousePos.y);
+	}, &mx, &my);
+
+	if (_cursor.UpdateCursorPosition((int)mx, (int)my)) {
+		// Warp the mouse position.
+		mx = _cursor.pos.x;
+		my = _cursor.pos.y;
+		DEX_ASM_ARGS({
+			Sandbox.Mouse.Position = new Vector2(Mem.LoadSingle($0), Mem.LoadSingle($1));
+		}, &mx, &my);
+	}
+	HandleMouseEvents();
+	
+	float wheelX = 0.f;
+	float wheelY = 0.f;
+	DEX_ASM_ARGS({
+		Mem.Store($0, (float)Sandbox.Input.MouseWheel.x);
+		Mem.Store($1, (float)Sandbox.Input.MouseWheel.y);
+	}, &wheelX, &wheelY);
+
+	if (wheelX != 0.f || wheelY != 0.f) {
+		if (wheelY > 0) {
+			_cursor.wheel--;
+		} else if (wheelY < 0) {
+			_cursor.wheel++;
+		}
+
+		/* Handle 2D scrolling. */
+		const float SCROLL_BUILTIN_MULTIPLIER = 14.0f;
+		_cursor.v_wheel -= static_cast<float>(wheelY * SCROLL_BUILTIN_MULTIPLIER * _settings_client.gui.scrollwheel_multiplier);
+		_cursor.h_wheel += static_cast<float>(wheelX * SCROLL_BUILTIN_MULTIPLIER * _settings_client.gui.scrollwheel_multiplier);
+
+		_cursor.wheel_moved = true;
+		HandleMouseEvents();
+	}
+
+
+	if (m_mouseDownFlags & 0x1) {
+		_left_button_down = true;
+		HandleMouseEvents();
+	}
+	if (m_mouseDownFlags & 0x2) {
+		_right_button_down = true;
+		_right_button_clicked = true;
+		HandleMouseEvents();
+	}
+
+	if (m_mouseUpFlags & 0x1) {
+		_left_button_down = false;
+		_left_button_clicked = false;
+		HandleMouseEvents();
+	}
+
+	if (m_mouseUpFlags & 0x2) {
+		_right_button_down = false;
+		HandleMouseEvents();
+	}
+	m_mouseDownFlags = 0;
+	m_mouseUpFlags = 0;
+
 	return false;
 }
 

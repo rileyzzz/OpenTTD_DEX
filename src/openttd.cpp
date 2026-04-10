@@ -810,7 +810,11 @@ int openttd_main(std::span<std::string_view> arguments)
 
 	VideoDriver::GetInstance()->MainLoop();
 
+	#ifndef __EMSCRIPTEN__
+	// Unlike emscripten, dex doesn't unwind when the main loop is set.
+	// So don't close out the game, just let it run.
 	PostMainLoop();
+	#endif // __EMSCRIPTEN__
 	return 0;
 }
 

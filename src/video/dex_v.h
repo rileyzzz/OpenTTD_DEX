@@ -9,7 +9,7 @@ class VideoDriver_Dex : public VideoDriver
 public:
 	std::string_view GetName() const override { return "DEX"; }
 
-	VideoDriver_Dex(bool uses_hardware_acceleration = false);
+	VideoDriver_Dex(bool uses_hardware_acceleration = true);
 	virtual ~VideoDriver_Dex(void);
 
 	std::optional<std::string_view> Start(const StringList &param) override;
@@ -49,6 +49,9 @@ protected:
 	int m_videoBPP = 0;
 	void* m_videoPtr = nullptr;
 
+	int m_mouseDownFlags = 0;
+	int m_mouseUpFlags = 0;
+
 	Dimension GetScreenSize() const override;
 	void InputLoop() override;
 	bool LockVideoBuffer() override;
@@ -61,7 +64,7 @@ protected:
 	void ClientSizeChanged(int w, int h, bool force);
 
 	/** Create the main window. */
-	bool CreateFramebuffer(uint w, uint h, bool resize);
+	bool CreateFramebuffer(uint w, uint h);
 
 	bool AllocateBackingStore(int w, int h, bool force = false);
 
@@ -71,6 +74,9 @@ private:
 
 	void UpdatePalette();
 	void MakePalette();
+
+	void OnMouseDown(int button);
+	void OnMouseUp(int button);
 
 	/* Convert a constant pointer back to a non-constant pointer to a member function. */
 	static void EmscriptenLoop(void *self) { ((VideoDriver_Dex*)self)->LoopOnce(); }

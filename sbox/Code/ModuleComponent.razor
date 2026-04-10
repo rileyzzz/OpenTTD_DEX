@@ -29,13 +29,16 @@
     private static bool SoundUpdate = false;
     private static bool EscapeState = false;
 
-    private static ModuleComponent Instance;
+    public static Action<int> MouseDownCallback;
+    public static Action<int> MouseUpCallback;
+
+    public static ModuleComponent Instance;
 
     public static bool MouseCursorVisible
     {
         set
         {
-            Instance.Panel?.SetMouseCapture(!value);
+            // Instance.Panel?.SetMouseCapture(!value);
         }
     }
 
@@ -107,7 +110,8 @@
 
     public static void VideoResize(int width, int height)
     {
-        Framebuf = Texture.Create(width, height, ImageFormat.RGBA8888)
+        // Framebuf = Texture.Create(width, height, ImageFormat.RGBA8888)
+        Framebuf = Texture.Create(width, height, ImageFormat.ABGR8888)
             .WithDynamicUsage()
             .Finish();
 
@@ -130,7 +134,7 @@
             ScratchImgBuffer = new Color32[bufferSize];
         }
 
-        int srcOffset = (imgY * srcPitch) + imgX;
+        int srcOffset = (imgY * srcPitch) + imgX * byteStride;
         int bufOffset = 0;
         for (int y = 0; y < h; y++)
         {
@@ -149,16 +153,23 @@
                 }
                 else if (bpp == 24)
                 {
-                    uint i = ((uint)video[srcOffset + x])
-                           | ((uint)video[srcOffset + x + 1] << 8)
-                           | ((uint)video[srcOffset + x + 2] << 16);
-                    color = Palette[(int)i];
+                    uint i = ((uint)video[srcOffset + (x * 3) + 0])
+                           | ((uint)video[srcOffset + (x * 3) + 1] << 8)
+                           | ((uint)video[srcOffset + (x * 3) + 2] << 16);
+                    // color = Palette[(int)i];
+                    color = Color.FromRgb(i).ToColor32();
                 }
                 else if (bpp == 32)
                 {
                     uint i = BinaryPrimitives.ReadUInt32LittleEndian(video.Slice(srcOffset + x * 4, 4));
-                    color = Palette[(int)i];
+                    // color = Palette[(int)i];
+                    color = Color.FromRgba(i).ToColor32();
                 }
+                else
+                {
+                    Log.Error("Unknown bpp!");
+                }
+
                 ScratchImgBuffer[bufOffset++] = color;
             }
 
@@ -195,20 +206,61 @@
         base.OnTreeBuilt();
     }
 
+    /*
+    protected override void OnMouseDown(MousePanelEvent e)
+    {
+        if (MouseDownCallback != null)
+        {
+            MouseDownCallback((int)e.MouseButton);
+        }
+    }
+
+    
+    protected override void OnMouseUp(MousePanelEvent e)
+    {
+        if (MouseUpCallback != null)
+        {
+            MouseUpCallback((int)e.MouseButton);
+        }
+    }
+    */
+
     protected override void OnStart()
     {
         base.OnStart();
 
+        Mouse.Visibility = MouseVisibility.Hidden;
     }
 
     protected override void OnUpdate()
     {
         base.OnUpdate();
 
+        if (Input.Pressed("LMB"))
+        {
+            MouseDownCallback?.Invoke((int)MouseButtons.Left);
+        }
+
+        if (Input.Released("LMB"))
+        {
+            MouseUpCallback?.Invoke((int)MouseButtons.Left);
+        }
+
+        
+        if (Input.Pressed("RMB"))
+        {
+            MouseDownCallback?.Invoke((int)MouseButtons.Right);
+        }
+
+        if (Input.Released("RMB"))
+        {
+            MouseUpCallback?.Invoke((int)MouseButtons.Right);
+        }
 
         // BuildEvents();
         if (InitOk)
         {
+            // Log.Info("loop!");
             Module.DoMainLoop();
         }
     }

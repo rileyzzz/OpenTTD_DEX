@@ -46,6 +46,7 @@ void SetCurrentThreadName(const std::string &name);
 template <class TFn, class... TArgs>
 inline bool StartNewThread(std::thread *thr, std::string_view name, TFn&& _Fx, TArgs&&... _Ax)
 {
+	#if DEX_TODO
 	try {
 		static std::mutex thread_startup_mutex;
 		std::lock_guard<std::mutex> lock(thread_startup_mutex);
@@ -81,6 +82,7 @@ inline bool StartNewThread(std::thread *thr, std::string_view name, TFn&& _Fx, T
 		/* Something went wrong, the system we are running on might not support threads. */
 		Debug(misc, 1, "Can't create thread '{}': {}", name, e.what());
 	}
+	#endif // DEX_TODO
 
 	return false;
 }
